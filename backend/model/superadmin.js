@@ -1,17 +1,14 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/dbconfg.js";
 
-const Student = sequelize.define(
-    "Student",
+const SuperAdmin = sequelize.define(
+    "SuperAdmin",
     {
         id: {
             primaryKey: true,
-            type: DataTypes.BIGINT,
+            type: DataTypes.UUID,
             allowNull: false,
             unique: true,
-            validate: {
-                len: 10,
-            },
         },
         firstName: {
             type: DataTypes.STRING(20),
@@ -42,4 +39,4 @@ const Student = sequelize.define(
     }
 );
 
-export default Student;
+export default SuperAdmin;
