@@ -6,52 +6,131 @@ import Student from "../model/student.js";
 import Admin from "../model/admin.js";
 import SuperAdmin from "../model/superadmin.js";
 import Event from "../model/event.js";
+import StudentRefreshToken from "../model/token/studentRefreshToken.js";
+import AdminRefreshToken from "../model/token/adminRefreshToken.js";
+import SuperAdminRefreshToken from "../model/token/superAdminRefreshToken.js";
+
 const { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET } = process.env;
 
 dotenv.config({ path: "../.env" });
 
-function tokenGenerator(payload) {
-    const accessToken = jwt.sign(
+function getAcessToken(payload) {
+    const newAccessToken = jwt.sign(
         payload,
         ACCESS_JWT_SECRET,
         { expiresIn: "15m" },
         { algorithm: "HS256" }
     );
+    return newAccessToken;
+}
 
-    const refreshToken = jwt.sign(
+function getRefreshToken(payload) {
+    const newRefreshToken = jwt.sign(
         payload,
         REFRESH_JWT_SECRET,
         { expiresIn: "7d" },
         { algorithm: "HS256" }
     );
 
-    return { accessToken, refreshToken };
+    return newRefreshToken;
 }
 
 function roleIdentify(role) {
     if (role === "student") {
-        return Student;
+        return {
+            userModel: Student,
+            refreshTokenModel: StudentRefreshToken,
+            associationKey: "studentTokenData",
+        };
     }
     if (role === "admin") {
-        return Admin;
+        return {
+            userModel: Admin,
+            refreshTokenModel: AdminRefreshToken,
+            associationKey: "adminTokenData",
+        };
     }
-    if (role === "supadmin") {
-        return SuperAdmin;
+    if (role === "superAdmin") {
+        return {
+            userModel: SuperAdmin,
+            refreshTokenModel: SuperAdminRefreshToken,
+            associationKey: "superAdminTokenData",
+        };
     }
     return false;
 }
 
-export const login = async (req, res) => {
+async function refreshTokenHandler(user, newRefreshToken, refreshTokenModel) {
+    try {
+        //Enkripsi refresh token agar aman
+        const hashedNewRefreshToken = bcrypt.hashSync(newRefreshToken, 10);
+
+        // Jika refresh token belum ada maka simpan refresh token yang baru
+        const userRefreshToken = await refreshTokenModel.findAll({
+            where: { ownerId: user.id },
+            order: [["expiresAt", "ASC"]],
+        });
+
+        if (userRefreshToken.length < 3) {
+            await refreshTokenModel.create({
+                token: hashedNewRefreshToken,
+                isRevoked: false,
+                ownerId: user.id,
+                expiresAt: new Date(
+                    new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+                ),
+            });
+            return;
+        }
+
+        // Jika token sudah ada di DB maka hanya perlu di-update
+        const revokedRefreshToken = await refreshTokenModel.findOne({
+            where: { ownerId: user.id, isRevoked: true },
+        });
+
+        if (revokedRefreshToken) {
+            await refreshTokenModel.update(
+                {
+                    token: hashedNewRefreshToken,
+                    isRevoked: false,
+                    expiresAt: new Date(
+                        new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+                    ),
+                },
+                { where: { ownerId: user.id, id: revokedRefreshToken.id } }
+            );
+            return;
+        }
+
+        await refreshTokenModel.update(
+            {
+                token: hashedNewRefreshToken,
+                isRevoked: false,
+                expiresAt: new Date(
+                    new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+                ),
+            },
+            { where: { ownerId: user.id, id: userRefreshToken[0].id } }
+        );
+    } catch (error) {
+        return error;
+    }
+}
+
+export async function login(req, res) {
     try {
         const { email, password } = req.body;
-        let role = req.query.role;
+        let role = req.query.role.toLowerCase();
 
-        const model = roleIdentify(role.toLowerCase());
-        if (!model) {
+        const { userModel, refreshTokenModel, associationKey } =
+            roleIdentify(role);
+
+        if (!userModel) {
             throw new Error("Role tidak Valid");
         }
 
-        const user = await model.findOne({ where: { email } });
+        let user;
+        user = await userModel.findOne({ where: { email } });
         if (!user) {
             throw new Error(`Kamu tidak terdaftar sebagai ${role}`);
         }
@@ -62,9 +141,12 @@ export const login = async (req, res) => {
         }
 
         const payload = { id: user.id, role };
-        const { accessToken, refreshToken } = tokenGenerator(payload);
+        const newAccessToken = getAcessToken(payload);
+        const newRefreshToken = getRefreshToken(payload);
 
-        res.cookie("access-token", accessToken, {
+        refreshTokenHandler(user, newRefreshToken, refreshTokenModel);
+
+        res.cookie("access-token", newAccessToken, {
             httpOnly: true,
             secure: true,
             sameSite: "strict",
@@ -72,7 +154,7 @@ export const login = async (req, res) => {
             path: "/",
         });
 
-        res.cookie("refresh-token", refreshToken, {
+        res.cookie("refresh-token", newRefreshToken, {
             httpOnly: true,
             secure: true,
             sameSite: "strict",
@@ -80,35 +162,45 @@ export const login = async (req, res) => {
             path: "/",
         });
 
-        res.status(200).json({ message: "Login Success !" });
+        res.status(200).json({
+            message: "Login Success !",
+            userId: user.id,
+        });
     } catch (error) {
         res.status(400).json({
             message: error.message,
         });
     }
-};
-
-export const tester = (req, res) => {
-    console.log(req.session);
-    res.json({ message: "success" });
-};
+}
 
 export const eventViewer = (req, res) => {
     res.send(req.user);
 };
 
-export const userRegister = async (req, res) => {
-    const { firstName, lastName, email, password } = req.body;
-    let role = req.query.role;
+// export const userRegister = async (req, res) => {
+//     const { id, firstName, lastName, email, password } = req.body;
+//     let role = req.query.role;
 
-    const model = roleIdentify(role.toLowerCase());
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    const newUser = await model.create({
-        id: uuidv7(),
-        firstName,
-        lastName,
-        email,
-        password: hashedPassword,
-    });
-    return res.status(201).json({ message: "user Created", data: newUser });
-};
+//     const identify = roleIdentify(role.toLowerCase());
+//     const userModel = identify.userModel;
+
+//     const hashedPassword = bcrypt.hashSync(password, 10);
+//     const newUser = await userModel.create({
+//         id,
+//         firstName,
+//         lastName,
+//         email,
+//         password: hashedPassword,
+//     });
+//     return res.status(201).json({ message: "user Created", data: newUser });
+// };
+
+// user = await userModel.findOne({
+//     where: { email },
+//     include: {
+//         model: refreshTokenModel, // Sertakan data RefreshToken
+//         as: associationKey,
+//         attributes: ["id", "token", "expiresAt"], // Pilih kolom yang ingin ditampilkan
+//         order: [["expiresAt", "ASC"]], // urut dari token terbaru hingga tertua
+//     },
+// });

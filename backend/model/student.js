@@ -6,12 +6,9 @@ const Student = sequelize.define(
     {
         id: {
             primaryKey: true,
-            type: DataTypes.BIGINT,
+            type: DataTypes.CHAR(10),
             allowNull: false,
             unique: true,
-            validate: {
-                len: 10,
-            },
         },
         firstName: {
             type: DataTypes.STRING(20),
