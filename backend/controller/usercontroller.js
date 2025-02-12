@@ -9,6 +9,7 @@ import Event from "../model/event.js";
 import StudentRefreshToken from "../model/token/studentRefreshToken.js";
 import AdminRefreshToken from "../model/token/adminRefreshToken.js";
 import SuperAdminRefreshToken from "../model/token/superAdminRefreshToken.js";
+import { refreshTokenValidator } from "../validator/validator.js";
 
 const { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET } = process.env;
 
@@ -173,27 +174,70 @@ export async function login(req, res) {
     }
 }
 
+export const refreshAccessToken = async (req, res) => {
+    try {
+        const { id, role } = req.user;
+        const { refreshTokenModel } = roleIdentify(role);
+        const refreshTokenList = await refreshTokenModel.findAll({
+            where: { ownerId: id, isRevoked: false },
+        });
+
+        if (refreshTokenList.length == 0) {
+            throw new Error("Silahkan login terlebih dahulu !");
+        }
+
+        const requestRefreshToken = req.headers.authorization.split(" ")[1];
+
+        const isRefreshTokenMatch = refreshTokenValidator(
+            refreshTokenList,
+            requestRefreshToken
+        );
+
+        if (!isRefreshTokenMatch) {
+            throw new Error("Silahkan login terlebih dahulu !");
+        }
+
+        const payload = { id, role };
+        const newAccessToken = getAcessToken(payload);
+        res.cookie("access-token", newAccessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict",
+            maxAge: 1000 * 60 * 15,
+            path: "/",
+        });
+
+        res.status(200).json({
+            message: "Access Token Sent Successfully !",
+        });
+    } catch (error) {
+        res.status(400).json({
+            message: error.message,
+        });
+    }
+};
+
 export const eventViewer = (req, res) => {
     res.send(req.user);
 };
 
-// export const userRegister = async (req, res) => {
-//     const { id, firstName, lastName, email, password } = req.body;
-//     let role = req.query.role;
+export const userRegister = async (req, res) => {
+    const { id, firstName, lastName, email, password } = req.body;
+    let role = req.query.role;
 
-//     const identify = roleIdentify(role.toLowerCase());
-//     const userModel = identify.userModel;
+    const identify = roleIdentify(role.toLowerCase());
+    const userModel = identify.userModel;
 
-//     const hashedPassword = bcrypt.hashSync(password, 10);
-//     const newUser = await userModel.create({
-//         id,
-//         firstName,
-//         lastName,
-//         email,
-//         password: hashedPassword,
-//     });
-//     return res.status(201).json({ message: "user Created", data: newUser });
-// };
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const newUser = await userModel.create({
+        id,
+        firstName,
+        lastName,
+        email,
+        password: hashedPassword,
+    });
+    return res.status(201).json({ message: "user Created", data: newUser });
+};
 
 // user = await userModel.findOne({
 //     where: { email },
