@@ -15,6 +15,10 @@ const userModel = (sequelize, DataTypes) => {
                 type: DataTypes.CHAR(10),
                 unique: true,
             },
+            role: {
+                type: DataTypes.ENUM("student", "admin", "super_admin"),
+                allowNull: false,
+            },
             firstName: {
                 type: DataTypes.STRING(20),
                 allowNull: false,
@@ -41,6 +45,12 @@ const userModel = (sequelize, DataTypes) => {
         {
             tableName: "users",
             timestamps: false,
+            indexes: [
+                {
+                    fields: ["email"],
+                    name: "email_idx",
+                },
+            ],
         }
     );
 
