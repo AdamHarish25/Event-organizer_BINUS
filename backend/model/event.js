@@ -1,48 +1,67 @@
-import { DataTypes } from "sequelize";
-import sequelize from "../config/dbconfg.js";
+import { uuidv7 } from "uuidv7";
 
-const Event = sequelize.define(
-    "Event",
-    {
-        id: {
-            primaryKey: true,
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            unique: true,
-            autoIncrement: true,
-        },
-        eventName: {
-            type: DataTypes.STRING(70),
-            allowNull: false,
-        },
-        date: {
-            type: DataTypes.DATE,
-            allowNull: false,
-        },
-        time: {
-            type: DataTypes.TIME,
-            allowNull: false,
-        },
-        location: {
-            type: DataTypes.STRING(50),
-            allowNull: false,
-        },
-        performers: {
-            type: DataTypes.STRING(30),
-            allowNull: false,
-        },
-        status: {
-            type: DataTypes.STRING(10),
-            allowNull: false,
-            validate: {
-                isIn: [["accepted", "pending", "rejected"]],
+const eventModel = (sequelize, DataTypes) => {
+    const Event = sequelize.define(
+        "Event",
+        {
+            id: {
+                type: DataTypes.UUID,
+                defaultValue: () => uuidv7(),
+                primaryKey: true,
+                allowNull: false,
+                unique: true,
+            },
+            creatorId: {
+                type: DataTypes.UUID,
+                allowNull: false,
+            },
+            eventName: {
+                type: DataTypes.STRING(70),
+                allowNull: false,
+            },
+            date: {
+                type: DataTypes.DATEONLY,
+                allowNull: false,
+            },
+            time: {
+                type: DataTypes.TIME,
+                allowNull: false,
+            },
+            location: {
+                type: DataTypes.STRING(100),
+                allowNull: false,
+            },
+            performers: {
+                type: DataTypes.STRING(100),
+                allowNull: false,
+            },
+            status: {
+                type: DataTypes.ENUM("accepted", "pending", "rejected"),
+                allowNull: false,
+                defaultValue: "pending",
+            },
+            imageUrl: {
+                type: DataTypes.STRING(2048),
+                allowNull: true,
+                validate: {
+                    isUrl: true,
+                },
             },
         },
-    },
-    {
-        freezeTableName: true,
-        timestamps: false,
-    }
-);
+        {
+            tableName: "events",
+            timestamps: true,
+        }
+    );
 
-export default Event;
+    Event.associate = (models) => {
+        Event.belongsTo(models.User, {
+            foreignKey: "creatorId",
+            onDelete: "CASCADE",
+        });
+    };
+
+    return Event;
+};
+
+export default eventModel;
