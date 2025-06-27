@@ -75,7 +75,6 @@ const LoginSup = () => {
             />
           </div>
           <div className={className.flex}>
-            <p className={className.forgotPassword}>Forgot Password?</p>
             <button type="submit" className={className.button}>
               Login
             </button>

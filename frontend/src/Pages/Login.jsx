@@ -71,7 +71,7 @@ const LoginPg = () => {
             />
           </div>
           <div className={className.flex}>
-            <p className={className.forgotPassword}>Forgot Password?</p>
+            <Link to={'Forgot'} className={className.forgotPassword}>Forgot Password?</Link>
             <button type="submit" className={className.button}>
               Login
             </button>
