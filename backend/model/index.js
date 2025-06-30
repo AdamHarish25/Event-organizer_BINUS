@@ -23,3 +23,5 @@ Object.values(db).forEach((model) => {
         model.associate(db);
     }
 });
+
+export default db;

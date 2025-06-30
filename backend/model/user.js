@@ -14,6 +14,8 @@ const userModel = (sequelize, DataTypes) => {
             studentId: {
                 type: DataTypes.CHAR(10),
                 unique: true,
+                allowNull: true,
+                defaultValue: null,
             },
             role: {
                 type: DataTypes.ENUM("student", "admin", "super_admin"),

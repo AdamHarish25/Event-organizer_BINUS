@@ -1,54 +1,52 @@
 import Joi from "joi";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { resolve } from "path";
 
 dotenv.config({ path: resolve(process.cwd(), ".env") });
 
-// Validation Scheme
-const schema = Joi.object({
+export const loginValidatorSchema = Joi.object({
     email: Joi.string()
-        .email({ minDomainSegments: 2, tlds: { allow: ["id"] } })
+        .email({ minDomainSegments: 2, tlds: { allow: false } }) // nonaktifkan validasi TLD default
         .lowercase()
+        .pattern(/^[a-zA-Z0-9._%+-]+@binus\.ac\.id$/)
         .required()
         .messages({
-            "string.email": "Email Tidak Valid !",
-            "string.empty": "Email harus Diisi !",
-            "any.required": "Email Harus Diisi !",
+            "string.email": "Email tidak valid.",
+            "string.pattern.base":
+                "Email harus menggunakan domain @binus.ac.id.",
+            "string.empty": "Email tidak boleh kosong.",
+            "any.required": "Email wajib diisi.",
         }),
-    password: Joi.string().required().messages({
-        "string.empty": "Password Tidak Boleh Kosong !",
-        "any.required": "Password Tidak Boleh Kosong !",
+    password: Joi.string().min(8).max(30).required().messages({
+        "string.min": "Password minimal 8 karakter.",
+        "string.max": "Password maksimal 30 karakter.",
+        "string.empty": "Password tidak boleh kosong.",
+        "any.required": "Password wajib diisi.",
     }),
 });
 
-//Middleware As Validator
-export const loginValidator = async (req, res, next) => {
-    const { email, password } = req.body;
-    try {
-        await schema.validateAsync({ email, password });
-        next();
-    } catch (error) {
-        res.status(401).json({
-            message: error.details[0].message,
-            statuCode: 401,
-        });
-    }
-};
-
 export const tokenValidator = (secretKey) => {
-    return async (req, res, next) => {
+    return (req, res, next) => {
         try {
             if (!req.headers.authorization) {
-                throw new Error("Silahkan Login Terlebih Dahulu !");
+                return res
+                    .status(401)
+                    .json({ message: "Silahkan login terlebih dahulu." });
             }
             const token = req.headers.authorization.split(" ")[1];
             const decoded = jwt.verify(token, secretKey);
             req.user = decoded;
             next();
         } catch (error) {
-            res.status(401).json({ message: error.message });
+            let errorMessage = "Token tidak valid.";
+            if (error.name === "TokenExpiredError") {
+                errorMessage = "Token kadaluarsa. Silahkan login kembali.";
+            } else if (error.name === "JsonWebTokenError") {
+                errorMessage = "Token tidak valid atau format salah.";
+            }
+            return res.status(401).json({ message: errorMessage });
         }
     };
 };
@@ -58,7 +56,7 @@ export const refreshTokenValidator = async (
     requestRefreshToken
 ) => {
     refreshTokenList.forEach((eachToken) => {
-        const isRefreshTokenMatch = bcrypt.compareSync(
+        const isRefreshTokenMatch = bcrypt.compare(
             requestRefreshToken,
             eachToken.token
         );

@@ -26,11 +26,9 @@ app.use(
 app.use(router);
 app.use("/", (req, res) => {
     res.status(404).json({
-        error: "Page Not Found Bang !",
-        statusCode: 404,
+        error: "Page Not Found !",
+        status: 404,
     });
 });
 
-app.listen(process.env.PORT, () => {
-    console.log(`Server listening on http://localhost:${process.env.PORT}`);
-});
+export default app;
