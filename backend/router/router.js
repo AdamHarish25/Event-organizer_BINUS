@@ -1,6 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
-import { tokenValidator } from "../validator/validator.js";
+import {
+    accessTokenValidator,
+    refreshTokenValidator,
+} from "../validator/validator.js";
 import { loginValidator } from "../middleware/loginValidator.js";
 import { loginValidatorSchema } from "../validator/validator.js";
 import {
@@ -13,23 +16,24 @@ import {
 import authenticateBlacklistedToken from "../service/token/blacklistedToken.js";
 
 dotenv.config({ path: "../.env" });
+
 const { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET } = process.env;
 const router = express.Router();
 
 router.post("/register", userRegister);
 router.post("/login", loginValidator(loginValidatorSchema), login);
-router.post("/logout", tokenValidator(ACCESS_JWT_SECRET), logout);
+router.post("/logout", accessTokenValidator(ACCESS_JWT_SECRET), logout);
 router.get(
     "/event",
-    tokenValidator(ACCESS_JWT_SECRET),
+    accessTokenValidator(ACCESS_JWT_SECRET),
     authenticateBlacklistedToken,
     eventViewer
 );
-// router.post(
-//     "/refresh-token",
-//     tokenValidator(REFRESH_JWT_SECRET),
-//     refreshAccessToken
-// );
+router.post(
+    "/token",
+    refreshTokenValidator(REFRESH_JWT_SECRET),
+    refreshAccessToken
+);
 // router.post("/admin-dashboard", authorizeRole("admin"));
 // router.post("/supadmin-dashboard", authorizeRole("supadmin"));
 

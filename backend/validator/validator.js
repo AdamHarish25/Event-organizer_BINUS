@@ -27,22 +27,23 @@ export const loginValidatorSchema = Joi.object({
     }),
 });
 
-export const tokenValidator = (secretKey) => {
+const createTokenValidator = (secretKey, tokenExtractor) => {
     return (req, res, next) => {
         try {
-            if (!req.headers.authorization) {
+            const token = tokenExtractor(req);
+            if (!token) {
                 return res
                     .status(401)
-                    .json({ message: "Silahkan login terlebih dahulu." });
+                    .json({ message: "Silakan login terlebih dahulu." });
             }
-            const token = req.headers.authorization.split(" ")[1];
+
             const decoded = jwt.verify(token, secretKey);
             req.user = decoded;
             next();
         } catch (error) {
             let errorMessage = "Token tidak valid.";
             if (error.name === "TokenExpiredError") {
-                errorMessage = "Token kadaluarsa. Silahkan login kembali.";
+                errorMessage = "Token kadaluarsa. Silakan login kembali.";
             } else if (error.name === "JsonWebTokenError") {
                 errorMessage = "Token tidak valid atau format salah.";
             }
@@ -51,21 +52,26 @@ export const tokenValidator = (secretKey) => {
     };
 };
 
-export const refreshTokenValidator = async (
-    refreshTokenList,
-    requestRefreshToken
-) => {
-    refreshTokenList.forEach((eachToken) => {
-        const isRefreshTokenMatch = bcrypt.compare(
-            requestRefreshToken,
-            eachToken.token
-        );
-        if (isRefreshTokenMatch) {
-            return true;
-        }
+export const accessTokenValidator = (secretKey) =>
+    createTokenValidator(secretKey, (req) => {
+        const authHeader = req.headers.authorization;
+        return authHeader ? authHeader.split(" ")[1] : null;
     });
-    return false;
-};
+
+export const refreshTokenValidator = (secretKey) =>
+    createTokenValidator(secretKey, (req) => req.cookies.refreshToken);
+
+//     refreshTokenList.forEach((eachToken) => {
+//         const isRefreshTokenMatch = bcrypt.compare(
+//             requestRefreshToken,
+//             eachToken.token
+//         );
+//         if (isRefreshTokenMatch) {
+//             return true;
+//         }
+//     });
+//     return false;
+// };
 
 export const authorizeRole = (role) => {
     return (req, res, next) => {

@@ -1,46 +1,45 @@
 import bcrypt from "bcrypt";
+import db from "../model/index.js";
 import extractDeviceInfo from "../utils/deviceInfo.js";
+import renewAccessToken from "../service/auth/renewAccessToken.js";
 import {
     handleUserLogin,
     handleUserLogout,
 } from "../service/auth/authService.js";
-import { refreshTokenValidator } from "../validator/validator.js";
-import db from "../model/index.js";
 
 export const refreshAccessToken = async (req, res) => {
     try {
-        const { id, role } = req.user;
-        const refreshTokenList = await db.RefreshToken.findAll({
-            where: { ownerId: id, isRevoked: false },
-        });
+        const model = { RefreshTokenModel: db.RefreshToken };
+        const oldRefreshToken = req.cookies.refreshToken;
 
-        if (refreshTokenList.length == 0) {
-            throw new Error("Silahkan login terlebih dahulu !");
+        if (!oldRefreshToken) {
+            throw new Error("Refresh token tidak ditemukan");
         }
 
-        const requestRefreshToken = req.headers.authorization.split(" ")[1];
-
-        const isRefreshTokenMatch = refreshTokenValidator(
-            refreshTokenList,
-            requestRefreshToken
+        const { newAccessToken, newRefreshToken } = await renewAccessToken(
+            req.user,
+            model,
+            oldRefreshToken
         );
 
-        if (!isRefreshTokenMatch) {
-            throw new Error("Silahkan login terlebih dahulu !");
-        }
-
-        const payload = { id, role };
-        const newAccessToken = getAcessToken(payload);
-        res.cookie("access-token", newAccessToken, {
+        res.clearCookie("refreshToken", {
             httpOnly: true,
             secure: true,
             sameSite: "strict",
-            maxAge: 1000 * 60 * 15,
+            path: "/",
+        });
+
+        res.cookie("refreshToken", newRefreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "strict",
+            maxAge: 1000 * 60 * 60 * 24 * 7,
             path: "/",
         });
 
         res.status(200).json({
             message: "Access Token Sent Successfully !",
+            accessToken: newAccessToken,
         });
     } catch (error) {
         res.status(400).json({
@@ -65,14 +64,6 @@ export async function login(req, res) {
             deviceName
         );
 
-        res.cookie("accessToken", accessToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict",
-            maxAge: 1000 * 60 * 15,
-            path: "/",
-        });
-
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: true,
@@ -84,6 +75,7 @@ export async function login(req, res) {
         res.status(200).json({
             message: "Login Success !",
             userId: user.id,
+            accessToken,
         });
     } catch (error) {
         console.error("Error in login endpoint:", error);
@@ -118,13 +110,6 @@ export async function logout(req, res) {
         };
 
         await handleUserLogout(token, model, req.user.id);
-
-        res.clearCookie("accessToken", {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict",
-            path: "/",
-        });
 
         res.clearCookie("refreshToken", {
             httpOnly: true,
