@@ -3,15 +3,21 @@ import dotenv from "dotenv";
 import cors from "cors";
 import session from "express-session";
 import cookieParser from "cookie-parser";
-import router from "./router/router.js";
+
+import errorHandler from "./middleware/errorHandler.js";
+import router from "./routes/index.js";
+import AppError from "./utils/AppError.js";
+
 dotenv.config();
 
 const app = express();
 
+app.set("trust proxy", true);
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+
 app.use(
     session({
         secret: process.env.SESSION_SECRET,
@@ -24,11 +30,9 @@ app.use(
 );
 
 app.use(router);
-app.use("/", (req, res) => {
-    res.status(404).json({
-        error: "Page Not Found !",
-        status: 404,
-    });
+app.use("/", (req, res, next) => {
+    next(new AppError("Page Not Found", 404, "PAGE_NOT_FOUND"));
 });
+app.use(errorHandler);
 
 export default app;

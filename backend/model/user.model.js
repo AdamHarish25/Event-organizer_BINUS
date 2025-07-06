@@ -66,6 +66,13 @@ const userModel = (sequelize, DataTypes) => {
             foreignKey: "creatorId",
             onDelete: "CASCADE",
         });
+
+        User.hasMany(models.OTP, { foreignKey: "userId", onDelete: "CASCADE" });
+
+        User.hasMany(models.ResetToken, {
+            foreignKey: "userId",
+            onDelete: "CASCADE",
+        });
     };
 
     return User;
