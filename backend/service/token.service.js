@@ -98,16 +98,11 @@ export const renewAccessToken = async (user, model, oldRefreshToken) => {
 
 export const saveResetTokenToDatabase = async (user, resetToken, model) => {
     const { ResetTokenModel } = model;
-    try {
-        const hashedResetToken = await bcrypt.hash(resetToken, 10);
-        const newResetToken = new ResetTokenModel({
-            userId: user.id,
-            token: hashedResetToken,
-            expiresAt: Date.now() + 5 * 60 * 1000,
-        });
-        await newResetToken.save();
-    } catch (error) {
-        console.error("Error saving reset token to database:", error);
-        throw new Error("Failed to save reset token");
-    }
+
+    const hashedResetToken = await bcrypt.hash(resetToken, 10);
+    await ResetTokenModel.create({
+        userId: user.id,
+        token: hashedResetToken,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+    });
 };

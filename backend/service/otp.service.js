@@ -42,7 +42,7 @@ export const validateOTP = async (user, otp, model) => {
     );
 };
 
-export const saveOTPToDatabase = async (userId, otp, model) => {
+export const saveOTPToDatabase = async (userId, otp, model, transaction) => {
     const { OTPModel } = model;
     const otpHash = await bcrypt.hash(otp, 10);
 
@@ -54,20 +54,24 @@ export const saveOTPToDatabase = async (userId, otp, model) => {
             attempt: { [Op.lt]: 3 },
             expiresAt: { [Op.gt]: new Date() },
         },
+        transaction,
     });
 
     if (otpRecord) {
         await OTPModel.update(
             { valid: false },
-            { where: { id: otpRecord.id } }
+            { where: { id: otpRecord.id }, transaction }
         );
     }
 
-    await OTPModel.create({
-        userId,
-        code: otpHash,
-        expiresAt: Date.now() + 5 * 60 * 1000,
-        attempt: 0,
-        valid: true,
-    });
+    await OTPModel.create(
+        {
+            userId,
+            code: otpHash,
+            expiresAt: Date.now() + 5 * 60 * 1000,
+            attempt: 0,
+            valid: true,
+        },
+        { transaction }
+    );
 };

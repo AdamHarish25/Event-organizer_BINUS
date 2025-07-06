@@ -7,6 +7,7 @@ import { sendOTPEmail } from "../utils/emailSender.js";
 import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
+import db from "../model/index.js";
 
 dotenv.config({ path: "../.env" });
 
@@ -99,24 +100,20 @@ export const handleUserLogout = async (token, model, userId) => {
 };
 
 export const requestPasswordReset = async (email, model) => {
-    try {
-        const { UserModel } = model;
+    const { sequelize } = db;
+    const { UserModel } = model;
 
-        const user = await UserModel.findOne({ where: { email } });
-        if (!user) {
-            throw new AppError(
-                "Email tidak terdaftar",
-                404,
-                "CLIENT_AUTH_ERROR"
-            );
-        }
+    const user = await UserModel.findOne({ where: { email } });
+    if (!user) {
+        throw new AppError("Email tidak terdaftar", 404, "CLIENT_AUTH_ERROR");
+    }
 
-        const otp = generateOTP();
-        const mailOptions = {
-            from: `BINUS Event Viewer <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: `Reset Password - Kode OTP`,
-            html: `
+    const otp = generateOTP();
+    const mailOptions = {
+        from: `BINUS Event Viewer <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Reset Password - Kode OTP`,
+        html: `
                     <!DOCTYPE html>
                     <html>
                     <head>
@@ -157,23 +154,35 @@ export const requestPasswordReset = async (email, model) => {
                     </body>
                     </html>
                 `,
-        };
-
-        await saveOTPToDatabase(user.id, otp, model);
-        await sendOTPEmail(mailOptions, email);
+    };
+    try {
+        await sequelize.transaction(async (transaction) => {
+            await saveOTPToDatabase(user.id, otp, model, transaction);
+            await sendOTPEmail(mailOptions, email);
+        });
     } catch (error) {
         console.error(
-            `[AuthService Error] Gagal mengirim OTP untuk email: ${email}:`,
-            error.message,
-            error.stack
+            `[TRANSACTION_FAILED] Gagal memproses OTP untuk ${email}.`,
+            {
+                errorMessage: error.message,
+                errorCode: error.code,
+                errorName: error.name,
+                stack: error.stack,
+            }
         );
 
-        if (error.type === "CLIENT_AUTH_ERROR") {
-            throw error;
+        if (error.code && error.code.startsWith("E")) {
+            throw new AppError(
+                "Gagal mengirimkan email verifikasi. Silakan coba beberapa saat lagi.",
+                502,
+                "EMAIL_SERVICE_ERROR"
+            );
         }
 
-        throw new Error(
-            "Terjadi kesalahan internal pada server saat proses pengiriman OTP."
+        throw new AppError(
+            "Terjadi kesalahan internal yang tidak terduga. Tim kami telah diberitahu.",
+            500,
+            "UNKNOWN_TRANSACTION_ERROR"
         );
     }
 };

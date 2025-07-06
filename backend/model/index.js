@@ -1,4 +1,4 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Sequelize } from "sequelize";
 
 import { sequelize } from "../config/dbconfig.js";
 import userModel from "./user.model.js";
@@ -23,6 +23,9 @@ db.RefreshToken = RefreshToken;
 db.BlacklistedToken = BlacklistedToken;
 db.ResetToken = ResetToken;
 db.OTP = OTP;
+
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
 Object.values(db).forEach((model) => {
     if (model.associate) {
