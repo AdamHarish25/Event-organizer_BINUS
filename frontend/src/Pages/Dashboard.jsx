@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { FaRegClock, FaRegCalendarAlt, FaMapMarkerAlt, FaClock, FaCalendar } from "react-icons/fa";
+import {
+  FaRegClock,
+  FaRegCalendarAlt,
+  FaMapMarkerAlt,
+  FaClock,
+  FaCalendar,
+} from "react-icons/fa";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
 import LogoBinus from "../assets/LogoBinus.png";
 import bowtie from "../assets/bowtie.png";
@@ -8,19 +14,11 @@ import profilePhoto from "../assets/profilePhoto.jpg";
 import { Link } from "react-router";
 import EventCarousel from "./Component/eventCarousel";
 
-import AI from '../assets/AI.jpg';
-import deepseaDiver from "../assets/deepseaDiver.jpg";
-import Financial from "../assets/Financial.jpg";
-import Mars from "../assets/mars.jpg";
-import Dog from "../assets/DOG.png";
-import Ocean from "../assets/ocean.png";
-import Redlight from "../assets/redlight.png";
-import LivingRoom from "../assets/livingRoom.png";
+import { ApprovedEvents } from "./data/mockdata";
 
 import "./Component/background.css";
 import { FaLocationPin } from "react-icons/fa6";
 import RealtimeClock from "./Component/realtime";
-
 
 const DashboardUser = () => {
   const [apiEvent, setApiEvent] = useState([]);
@@ -30,74 +28,6 @@ const DashboardUser = () => {
   const [loading, setLoading] = useState(true);
   const [bookmarkedEvents, setBookmarkedEvents] = useState(new Set());
   const [showBookmarked, setShowBookmarked] = useState(false);
-
- const events = [
-   {
-     title: "Living and Studying in Greenland",
-     location: "Binus Bekasi MMG",
-     speaker: "Embassy of Greenland",
-     date: "12th May 2023",
-     time: "07.40 - 09.50",
-     image: LivingRoom,
-   },
-   {
-     title: "Managing New York’s Busiest Junction",
-     location: "Binus Bekasi Ampitheatre",
-     speaker: "Barrack Obama",
-     date: "12th May 2023",
-     time: "10.00 - 18.00",
-     image: Redlight,
-   },
-   {
-     title: "How to Train a Decent Dog",
-     location: "Binus Bekasi Room 503",
-     speaker: "James Walker and Jhonny Red",
-     date: "12th May 2023",
-     time: "09.00 - 13.50",
-     image: Dog,
-   },
-   {
-     title: "Saving the World’s Cleanest Ocean",
-     location: "Binus Bekasi Canteen",
-     speaker: "Embassy of Australia",
-     date: "12th May 2023",
-     time: "15.00 - 19.30",
-     image: Ocean,
-   },
-   {
-     title: "Exploring Mars Colonization",
-     location: "Binus Bekasi Hall A",
-     speaker: "NASA",
-     date: "15th May 2023",
-     time: "09.00 - 11.30",
-     image: Mars,
-   },
-   {
-     title: "The Future of Artificial Intelligence",
-     location: "Binus Bekasi Innovation Lab",
-     speaker: "Elon Musk",
-     date: "16th May 2023",
-     time: "13.00 - 17.00",
-     image: AI,
-   },
-   {
-     title: "Mastering Personal Finance",
-     location: "Binus Bekasi Room 102",
-     speaker: "Warren Buffet",
-     date: "17th May 2023",
-     time: "10.00 - 14.00",
-     image: Financial,
-   },
-   {
-     title: "Deep Sea Exploration",
-     location: "Binus Bekasi Science Hall",
-     speaker: "Dr. Sylvia Earle",
-     date: "18th May 2023",
-     time: "15.00 - 19.00",
-     image: deepseaDiver,
-   },
- ];
-
 
   const toggleBookmark = (id) => {
     setBookmarkedEvents((prev) => {
@@ -112,19 +42,26 @@ const DashboardUser = () => {
   };
 
   useEffect(() => {
-    fetch("https://dummyjson.com/c/9be7-2560-4afa-9343")
+    fetch("https://dummyjson.com/c/7e6f-abb1-4b8e-8687")
       .then((response) => response.json())
       .then((data) => {
-        if (data.event) {
-          setApiEvent(data.event);
-          setFilteredEvents(data.event);
+        // PERBAIKAN DI SINI: ganti 'data.event' menjadi 'data.events'
+        if (data.events) {
+          setApiEvent(data.events);
+          setFilteredEvents(data.events);
+        } else {
+          // Tambahan: beri tahu di console jika struktur data tidak sesuai harapan
+          console.warn(
+            "Struktur data dari API tidak memiliki key 'events'. Data diterima:",
+            data
+          );
         }
       })
       .catch((err) => console.error("Error fetching data:", err))
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, []); // Dependency array kosong, fetch hanya sekali saat komponen mount
 
   useEffect(() => {
     if (!apiEvent.length) return;
@@ -168,7 +105,7 @@ const DashboardUser = () => {
         <div className="flex items-center justify-end gap-5 divide-x-2 divide-[#5B5B5B]">
           <div className="space-y-4 font-semibold text-right">
             <h1 className="text-2xl">Isyana Sarasvati</h1>
-            <Link className="text-[#D9242A]">Log Out</Link>
+            <Link to={"/login"} className="text-[#D9242A]">Log Out</Link>
           </div>
           <div className="w-fit h-fit pl-5">
             <img
@@ -183,12 +120,12 @@ const DashboardUser = () => {
         <div className="flex items-center justify-between mb-3 px-20 text-white">
           <h1 className="text-2xl font-semibold">Current Events</h1>
           <div className="flex items-end justify-center gap-3">
-            <RealtimeClock/>
+            <RealtimeClock />
           </div>
         </div>
 
         <div className="grid gap-2 w-full place-items-center">
-          <EventCarousel carouselData={events} />
+          <EventCarousel carouselData={ApprovedEvents} />
         </div>
       </div>
 
