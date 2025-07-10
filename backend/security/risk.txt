@@ -1,3 +1,0 @@
-user bisa memalsukan device yang digunakan untuk login
-penjahat bisa gunain refresh token yang sudah tidak valid, 
-solusi: cek, apakah refresh token sudah pernah digunakan atau belum sebelumnya, jika token udah pernah dipake sebelumnya walaupun sekarang udah tidak valid, logout semua akun user tersebut
