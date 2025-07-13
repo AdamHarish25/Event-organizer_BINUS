@@ -2,8 +2,12 @@ import AppError from "../utils/AppError.js";
 
 export const schemaValidator = (schema) => {
     return async (req, res, next) => {
+        const hasImage = "image" in schema.describe().keys;
+        const data = hasImage ? { ...req.body, image: req.file } : req.body;
+        console.log(req.file);
+
         try {
-            await schema.validateAsync(req.body, {
+            await schema.validateAsync(data, {
                 abortEarly: false,
                 allowUnknown: true,
                 convert: false,

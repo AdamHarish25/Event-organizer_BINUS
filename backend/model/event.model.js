@@ -31,7 +31,7 @@ const eventModel = (sequelize, DataTypes) => {
                 type: DataTypes.STRING(100),
                 allowNull: false,
             },
-            performers: {
+            speaker: {
                 type: DataTypes.STRING(100),
                 allowNull: false,
             },
@@ -39,6 +39,10 @@ const eventModel = (sequelize, DataTypes) => {
                 type: DataTypes.ENUM("accepted", "pending", "rejected"),
                 allowNull: false,
                 defaultValue: "pending",
+            },
+            imagePublicId: {
+                type: DataTypes.STRING,
+                allowNull: true,
             },
             imageUrl: {
                 type: DataTypes.STRING(2048),

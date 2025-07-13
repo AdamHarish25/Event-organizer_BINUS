@@ -7,7 +7,7 @@ dotenv.config();
 
 const startServer = async () => {
     try {
-        await checkEmailConnection();
+        // await checkEmailConnection();
         await testDBConnection();
 
         app.listen(process.env.PORT, () => {
