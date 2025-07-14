@@ -20,7 +20,7 @@ const { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET } = process.env;
 const router = express.Router();
 
 router.post("/register", register);
-router.post("/login", schemaValidator(loginValidatorSchema), login);
+router.post("/login", schemaValidator({ body: loginValidatorSchema }), login);
 router.post(
     "/logout",
     accessTokenValidator(ACCESS_JWT_SECRET),

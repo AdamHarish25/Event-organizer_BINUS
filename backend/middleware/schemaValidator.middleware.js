@@ -1,24 +1,46 @@
 import AppError from "../utils/AppError.js";
 
-export const schemaValidator = (schema) => {
+export const schemaValidator = (schemas) => {
     return async (req, res, next) => {
-        const hasImage = "image" in schema.describe().keys;
-        const data = hasImage ? { ...req.body, image: req.file } : req.body;
-        console.log(req.file);
+        const errors = {};
 
         try {
-            await schema.validateAsync(data, {
-                abortEarly: false,
-                allowUnknown: true,
-                convert: false,
-            });
+            if (schemas.body) {
+                const hasImage = "image" in schemas.body.describe().keys;
+                const data = hasImage
+                    ? { ...req.body, image: req.file }
+                    : req.body;
+
+                await schemas.body.validateAsync(data, {
+                    abortEarly: false,
+                    allowUnknown: true,
+                    convert: false,
+                });
+            }
+
+            if (schemas.params) {
+                await schemas.params.validateAsync(req.params, {
+                    abortEarly: false,
+                    allowUnknown: false,
+                    convert: false,
+                });
+            }
+
+            if (schemas.query) {
+                await schemas.query.validateAsync(req.query, {
+                    abortEarly: false,
+                    allowUnknown: true,
+                    convert: true,
+                });
+            }
+
             next();
         } catch (error) {
-            const errors = {};
-            error.details.forEach(
-                ({ path: [field], message }) =>
-                    (errors[field] = errors[field] || message)
-            );
+            if (error.details) {
+                error.details.forEach(({ path: [field], message }) => {
+                    errors[field] = errors[field] || message;
+                });
+            }
 
             next(
                 new AppError(

@@ -112,7 +112,7 @@ dotenv.config({ path: resolve(process.cwd(), ".env") });
 
 // export default eventSchema;
 
-const eventSchema = Joi.object({
+export const eventSchema = Joi.object({
     eventName: Joi.string().trim().min(3).max(70).required().messages({
         "string.base": "Nama event harus berupa teks.",
         "string.empty": "Nama event tidak boleh kosong.",
@@ -206,4 +206,12 @@ const eventSchema = Joi.object({
         .unknown(true),
 });
 
-export default eventSchema;
+const uuidV7Regex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const paramsSchema = Joi.object({
+    id: Joi.string().pattern(uuidV7Regex).required().messages({
+        "string.pattern.base": "Parameter 'id' tidak valid",
+        "any.required": "Parameter 'id' wajib diisi",
+    }),
+});

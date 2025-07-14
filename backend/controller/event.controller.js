@@ -1,5 +1,6 @@
-import { saveNewEvent } from "../service/event.service.js";
+import { handleDeleteEvent, saveNewEvent } from "../service/event.service.js";
 import db from "../model/index.js";
+import AppError from "../utils/AppError.js";
 
 export const eventViewer = async (req, res, next) => {
     try {
@@ -25,6 +26,22 @@ export const createEvent = async (req, res, next) => {
         res.status(200).json({
             status: "success",
             message: "Event Successly Created",
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const deleteEvent = async (req, res, next) => {
+    const model = {
+        EventModel: db.Event,
+    };
+    try {
+        await handleDeleteEvent(req.params.id, model);
+
+        res.status(200).json({
+            status: "success",
+            message: "Event Successly Deleted",
         });
     } catch (error) {
         next(error);

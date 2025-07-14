@@ -18,15 +18,19 @@ const router = express.Router();
 
 router.post(
     "/forgot-password",
-    schemaValidator(emailValidatorSchema),
+    schemaValidator({ body: emailValidatorSchema }),
     forgotPassword
 );
 
-router.post("/verify-otp", schemaValidator(otpValidatorSchema), verifyOTP);
+router.post(
+    "/verify-otp",
+    schemaValidator({ body: otpValidatorSchema }),
+    verifyOTP
+);
 
 router.post(
     "/reset-password",
-    schemaValidator(passwordValidatorSchema),
+    schemaValidator({ body: passwordValidatorSchema }),
     resetPassword
 );
 

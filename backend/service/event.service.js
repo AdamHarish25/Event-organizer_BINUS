@@ -1,4 +1,6 @@
+import AppError from "../utils/AppError.js";
 import { uploadPosterImage, deleteImage } from "./upload.service.js";
+import db from "../model/index.js";
 
 export const saveNewEvent = async (userId, data, file, model) => {
     const { EventModel } = model;
@@ -31,6 +33,7 @@ export const saveNewEvent = async (userId, data, file, model) => {
         .replace(/[^a-z0-9-]/g, "");
 
     const eventFolder = `${year}-${month}-${day}-${sanitizedEventName}`;
+    const mainEventFolderPath = `${year}/${monthName}/${eventFolder}`;
     const fullFolderPath = `${year}/${monthName}/${eventFolder}/${assetCategory}`;
     const fileName = `${sanitizedEventName}-${Date.now()}`;
 
@@ -57,6 +60,7 @@ export const saveNewEvent = async (userId, data, file, model) => {
             status,
             imageUrl,
             imagePublicId,
+            imageFolderPath: mainEventFolderPath,
         });
     } catch (error) {
         if (uploadResult) {
@@ -66,6 +70,45 @@ export const saveNewEvent = async (userId, data, file, model) => {
             await deleteImage(uploadResult.public_id);
         }
 
+        throw error;
+    }
+};
+
+export const handleDeleteEvent = async (eventId, model) => {
+    const { EventModel } = model;
+    const t = await db.sequelize.transaction();
+
+    try {
+        const data = await EventModel.findOne({
+            where: { id: eventId },
+            attributes: ["id", "imagePublicId"],
+            transaction: t,
+            lock: true,
+        });
+
+        if (!data) {
+            await t.rollback();
+            throw new AppError("Data event tidak ditemukan", 404, "NOT_FOUND");
+        }
+
+        if (data.imagePublicId) {
+            const parts = data.imagePublicId.split("/");
+            const imageFolderPath = parts.slice(0, 3).join("/");
+            await deleteImage(imageFolderPath);
+        }
+
+        await EventModel.destroy({
+            where: { id: data.id },
+            transaction: t,
+        });
+
+        await t.commit();
+        return true;
+    } catch (error) {
+        console.error("Gagal menghapus data, data akan di-rollback...");
+        if (!t.finished) {
+            await t.rollback();
+        }
         throw error;
     }
 };

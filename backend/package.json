@@ -20,6 +20,7 @@
     "homepage": "https://github.com/AdamHarish25/Event-organizer_BINUS#readme",
     "dependencies": {
         "bcrypt": "^6.0.0",
+        "cloudinary": "^2.7.0",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.5",
         "dotenv": "^16.4.7",
@@ -27,6 +28,7 @@
         "express-session": "^1.18.1",
         "joi": "^17.13.3",
         "jsonwebtoken": "^9.0.2",
+        "multer": "^2.0.1",
         "mysql2": "^3.14.1",
         "nodemailer": "^7.0.4",
         "sequelize": "^6.37.7",

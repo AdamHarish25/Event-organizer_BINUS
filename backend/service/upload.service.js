@@ -4,6 +4,7 @@ export const uploadPosterImage = (buffer, options) => {
     return new Promise((resolve, reject) => {
         const uploadOptions = {
             resource_type: "image",
+            timeout: 60000,
             ...options,
         };
 
@@ -20,9 +21,10 @@ export const uploadPosterImage = (buffer, options) => {
     });
 };
 
-export const deleteImage = async (publicId) => {
+export const deleteImage = async (folderPath) => {
     try {
-        await cloudinary.uploader.destroy(publicId);
+        await cloudinary.api.delete_resources_by_prefix(folderPath);
+        await cloudinary.api.delete_folder(folderPath);
     } catch (error) {
         console.error("Error deleting image from Cloudinary:", error);
         throw error;
