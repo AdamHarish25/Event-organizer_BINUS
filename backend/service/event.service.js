@@ -1,7 +1,6 @@
 import AppError from "../utils/AppError.js";
 import { generateEventAssetPaths } from "../utils/pathHelper.js";
 import { uploadPosterImage, deleteImage } from "./upload.service.js";
-import db from "../model/index.js";
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
 
@@ -86,41 +85,40 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
     }
 };
 
-export const handleDeleteEvent = async (eventId, model) => {
-    const { EventModel } = model;
-    const t = await db.sequelize.transaction();
-
+export const handleDeleteEvent = async (eventId, EventModel) => {
     try {
-        const data = await EventModel.findOne({
-            where: { id: eventId },
-            attributes: ["id", "imagePublicId"],
-            transaction: t,
-            lock: true,
+        const result = await sequelize.transaction(async (t) => {
+            const event = await EventModel.findOne({
+                where: { id: eventId },
+                attributes: ["id", "imagePublicId"],
+                transaction: t,
+            });
+
+            if (!event) {
+                throw new AppError(
+                    "Data event tidak ditemukan",
+                    404,
+                    "NOT_FOUND"
+                );
+            }
+
+            if (event.imagePublicId) {
+                const parts = event.imagePublicId.split("/");
+                const imageFolderPath = parts.slice(0, 3).join("/");
+                await deleteImage(imageFolderPath);
+            }
+
+            await EventModel.destroy({
+                where: { id: event.id },
+                transaction: t,
+            });
+
+            return true;
         });
 
-        if (!data) {
-            await t.rollback();
-            throw new AppError("Data event tidak ditemukan", 404, "NOT_FOUND");
-        }
-
-        if (data.imagePublicId) {
-            const parts = data.imagePublicId.split("/");
-            const imageFolderPath = parts.slice(0, 3).join("/");
-            await deleteImage(imageFolderPath);
-        }
-
-        await EventModel.destroy({
-            where: { id: data.id },
-            transaction: t,
-        });
-
-        await t.commit();
-        return true;
+        return result;
     } catch (error) {
-        console.error("Gagal menghapus data, data akan di-rollback...");
-        if (!t.finished) {
-            await t.rollback();
-        }
+        console.error("Gagal menghapus data:", error.message);
         throw error;
     }
 };

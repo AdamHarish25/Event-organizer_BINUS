@@ -38,11 +38,8 @@ export const createEvent = async (req, res, next) => {
 };
 
 export const deleteEvent = async (req, res, next) => {
-    const model = {
-        EventModel: db.Event,
-    };
     try {
-        await handleDeleteEvent(req.params.id, model);
+        await handleDeleteEvent(req.params.id, db.Event);
 
         res.status(200).json({
             status: "success",
