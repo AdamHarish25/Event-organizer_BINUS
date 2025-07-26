@@ -178,3 +178,5 @@ export const sendFeedback = async (eventId, superAdminId, feedback, model) => {
         throw error;
     }
 };
+
+export const editEventService = async (eventId, data, file, model) => {};

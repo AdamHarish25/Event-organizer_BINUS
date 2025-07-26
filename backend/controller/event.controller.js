@@ -2,6 +2,7 @@ import {
     handleDeleteEvent,
     saveNewEventAndNotify,
     sendFeedback,
+    editEventService,
 } from "../service/event.service.js";
 import db from "../model/index.js";
 
@@ -66,6 +67,25 @@ export const createFeedback = async (req, res, next) => {
         res.status(201).json({
             status: "success",
             message: "Feedback berhasil dikirim.",
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const editEvent = async (req, res, next) => {
+    const model = {
+        UserModel: db.User,
+        EventModel: db.Event,
+        NotificationModel: db.Notification,
+    };
+
+    try {
+        await editEventService(req.params.eventId, req.body, req.file, model);
+
+        res.status(200).json({
+            status: "success",
+            message: "Event berhasil diperbarui.",
         });
     } catch (error) {
         next(error);

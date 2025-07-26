@@ -57,4 +57,12 @@ router.post(
     createFeedback
 );
 
+router.put(
+    "/:eventId",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("admin"),
+    schemaValidator({ body: eventSchema }),
+    editEventService
+);
+
 export default router;
