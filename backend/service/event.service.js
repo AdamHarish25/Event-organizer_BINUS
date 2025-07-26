@@ -122,3 +122,5 @@ export const handleDeleteEvent = async (eventId, EventModel) => {
         throw error;
     }
 };
+
+export const sendFeedback = async (eventId, superAdminId, feedback) => {};

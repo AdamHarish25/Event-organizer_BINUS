@@ -6,11 +6,16 @@ import {
     eventViewer,
     createEvent,
     deleteEvent,
+    createFeedback,
 } from "../controller/event.controller.js";
 import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 import { roleValidator } from "../middleware/permission.middleware.js";
 import { schemaValidator } from "../middleware/schemaValidator.middleware.js";
-import { eventSchema, paramsSchema } from "../validator/event.validator.js";
+import {
+    eventSchema,
+    feedbackSchema,
+    paramsSchema,
+} from "../validator/event.validator.js";
 import uploadPoster from "../middleware/uploadPoster.middleware.js";
 import handleMulter from "../middleware/handleMulter.js";
 import { emailValidatorSchema } from "../validator/auth.validator.js";
@@ -42,6 +47,14 @@ router.delete(
     roleValidator("admin"),
     schemaValidator({ params: paramsSchema }),
     deleteEvent
+);
+
+router.post(
+    "/:eventId/feedback",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("super_admin"),
+    schemaValidator({ body: feedbackSchema }),
+    createFeedback
 );
 
 export default router;

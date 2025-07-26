@@ -215,3 +215,7 @@ export const paramsSchema = Joi.object({
         "any.required": "Parameter 'id' wajib diisi",
     }),
 });
+
+export const feedbackSchema = Joi.object({
+    feedback: Joi.string().trim().min(1).max(1000).required(),
+});

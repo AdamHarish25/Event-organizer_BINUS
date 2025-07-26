@@ -1,6 +1,7 @@
 import {
     handleDeleteEvent,
     saveNewEventAndNotify,
+    sendFeedback,
 } from "../service/event.service.js";
 import db from "../model/index.js";
 
@@ -44,6 +45,22 @@ export const deleteEvent = async (req, res, next) => {
         res.status(200).json({
             status: "success",
             message: "Event Successly Deleted",
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const createFeedback = async (req, res, next) => {
+    try {
+        const { eventId } = req.params;
+        const { feedback } = req.body;
+
+        await sendFeedback(eventId, req.user.id, feedback);
+
+        res.status(201).json({
+            status: "success",
+            message: "Feedback berhasil ditambahkan",
         });
     } catch (error) {
         next(error);
