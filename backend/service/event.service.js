@@ -126,13 +126,17 @@ export const handleDeleteEvent = async (eventId, EventModel) => {
 export const sendFeedback = async (eventId, superAdminId, feedback, model) => {
     const { EventModel, NotificationModel } = model;
     try {
-        await sequelize.transaction(async (t) => {
-            const event = await EventModel.findByPk(eventId);
+        const io = socketService.getIO();
+
+        const feedbackResult = await sequelize.transaction(async (t) => {
+            const event = await EventModel.findByPk(eventId, {
+                transaction: t,
+            });
             if (!event) {
                 throw new AppError("Event tidak ditemukan", 404, "NOT_FOUND");
             }
 
-            await NotificationModel.create(
+            const savedNotification = await NotificationModel.create(
                 {
                     eventId,
                     senderId: superAdminId,
@@ -160,9 +164,15 @@ export const sendFeedback = async (eventId, superAdminId, feedback, model) => {
                     transaction: t,
                 }
             );
+            return savedNotification;
         });
 
-        return true;
+        io.to(feedbackResult.recipientId).emit("eventRevised", {
+            message: "Event anda direvisi oleh Super Admin",
+            data: feedbackResult,
+        });
+
+        return feedbackResult;
     } catch (error) {
         console.error("Gagal mengirim feedback:", error.message);
         throw error;
