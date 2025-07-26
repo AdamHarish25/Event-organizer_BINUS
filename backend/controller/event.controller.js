@@ -52,15 +52,20 @@ export const deleteEvent = async (req, res, next) => {
 };
 
 export const createFeedback = async (req, res, next) => {
+    const model = {
+        EventModel: db.Event,
+        NotificationModel: db.Notification,
+    };
+
     try {
         const { eventId } = req.params;
         const { feedback } = req.body;
 
-        await sendFeedback(eventId, req.user.id, feedback);
+        await sendFeedback(eventId, req.user.id, feedback, model);
 
         res.status(201).json({
             status: "success",
-            message: "Feedback berhasil ditambahkan",
+            message: "Feedback berhasil dikirim.",
         });
     } catch (error) {
         next(error);

@@ -123,4 +123,48 @@ export const handleDeleteEvent = async (eventId, EventModel) => {
     }
 };
 
-export const sendFeedback = async (eventId, superAdminId, feedback) => {};
+export const sendFeedback = async (eventId, superAdminId, feedback, model) => {
+    const { EventModel, NotificationModel } = model;
+    try {
+        await sequelize.transaction(async (t) => {
+            const event = await EventModel.findByPk(eventId);
+            if (!event) {
+                throw new AppError("Event tidak ditemukan", 404, "NOT_FOUND");
+            }
+
+            await NotificationModel.create(
+                {
+                    eventId,
+                    senderId: superAdminId,
+                    recipientId: event.creatorId,
+                    notificationType: "event_revised",
+                    feedback,
+                    payload: {
+                        eventName: event.eventName,
+                        time: event.time,
+                        date: event.date,
+                        location: event.location,
+                        speaker: event.speaker,
+                        imageUrl: event.imageUrl,
+                    },
+                },
+                { transaction: t }
+            );
+
+            await EventModel.update(
+                {
+                    status: "revised",
+                },
+                {
+                    where: { id: eventId },
+                    transaction: t,
+                }
+            );
+        });
+
+        return true;
+    } catch (error) {
+        console.error("Gagal mengirim feedback:", error.message);
+        throw error;
+    }
+};
