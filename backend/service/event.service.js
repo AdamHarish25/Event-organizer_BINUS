@@ -1,41 +1,15 @@
 import AppError from "../utils/AppError.js";
+import { generateEventAssetPaths } from "../utils/pathHelper.js";
 import { uploadPosterImage, deleteImage } from "./upload.service.js";
 import db from "../model/index.js";
+import { sequelize } from "../config/dbconfig.js";
+import socketService from "../socket/index.js";
 
-export const saveNewEvent = async (userId, data, file, model) => {
-    const { EventModel } = model;
-    const { eventName, date, time, location, speaker, status } = data;
-
-    const assetCategory = "Desain-Publikasi";
-    const now = new Date(date);
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const monthNames = [
-        "Januari",
-        "Februari",
-        "Maret",
-        "April",
-        "Mei",
-        "Juni",
-        "Juli",
-        "Agustus",
-        "September",
-        "Oktober",
-        "November",
-        "Desember",
-    ];
-    const monthName = monthNames[now.getMonth()];
-
-    const sanitizedEventName = eventName
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
-
-    const eventFolder = `${year}-${month}-${day}-${sanitizedEventName}`;
-    const mainEventFolderPath = `${year}/${monthName}/${eventFolder}`;
-    const fullFolderPath = `${year}/${monthName}/${eventFolder}/${assetCategory}`;
-    const fileName = `${sanitizedEventName}-${Date.now()}`;
+export const saveNewEventAndNotify = async (userId, data, file, model) => {
+    const { UserModel, EventModel, NotificationModel } = model;
+    const { eventName, date, time, location, speaker } = data;
+    const { mainEventFolderPath, fullFolderPath, fileName } =
+        generateEventAssetPaths(eventName, date);
 
     const uploadOptions = {
         folder: fullFolderPath,
@@ -44,24 +18,62 @@ export const saveNewEvent = async (userId, data, file, model) => {
 
     let uploadResult;
     try {
+        const io = socketService.getIO();
+
         console.log(`Uploading to folder: ${fullFolderPath}`);
         uploadResult = await uploadPosterImage(file.buffer, uploadOptions);
 
-        const imagePublicId = uploadResult.public_id;
-        const imageUrl = uploadResult.secure_url;
+        const newEvent = await sequelize.transaction(async (t) => {
+            const event = await EventModel.create(
+                {
+                    creatorId: userId,
+                    eventName,
+                    date,
+                    time,
+                    location,
+                    speaker,
+                    status: "pending",
+                    imageUrl: uploadResult.secure_url,
+                    imagePublicId: uploadResult.public_id,
+                    imageFolderPath: mainEventFolderPath,
+                },
+                { transaction: t }
+            );
 
-        await EventModel.create({
-            creatorId: userId,
-            eventName,
-            date,
-            time,
-            location,
-            speaker,
-            status,
-            imageUrl,
-            imagePublicId,
-            imageFolderPath: mainEventFolderPath,
+            const superAdmins = await UserModel.findAll({
+                where: { role: "super_admin" },
+                attributes: ["id"],
+                transaction: t,
+            });
+
+            const notifications = superAdmins.map((admin) => ({
+                eventId: event.id,
+                senderId: userId,
+                recipientId: admin.id,
+                notificationType: "event_created",
+                payload: {
+                    eventName: event.eventName,
+                    time: event.time,
+                    date: event.date,
+                    location: event.location,
+                    speaker: event.speaker,
+                    imageUrl: event.imageUrl,
+                },
+            }));
+
+            await NotificationModel.bulkCreate(notifications, {
+                transaction: t,
+            });
+
+            return event;
         });
+
+        io.to("super_admin-room").emit("notifySuperAdmin", {
+            message: "Admin membuat event baru",
+            data: newEvent,
+        });
+
+        return newEvent;
     } catch (error) {
         if (uploadResult) {
             console.log(

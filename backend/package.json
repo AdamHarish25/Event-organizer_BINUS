@@ -32,6 +32,7 @@
         "mysql2": "^3.14.1",
         "nodemailer": "^7.0.4",
         "sequelize": "^6.37.7",
+        "socket.io": "^4.8.1",
         "ua-parser-js": "^2.0.4",
         "uuidv7": "^1.0.2"
     }

@@ -14,6 +14,10 @@ const resetTokenModel = (sequelize, DataTypes) => {
             userId: {
                 type: DataTypes.UUID,
                 allowNull: false,
+                references: {
+                    model: "users",
+                    key: "id",
+                },
             },
             token: {
                 type: DataTypes.STRING,

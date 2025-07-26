@@ -46,7 +46,7 @@ const userModel = (sequelize, DataTypes) => {
         },
         {
             tableName: "users",
-            timestamps: false,
+            timestamps: true,
             indexes: [
                 {
                     fields: ["email"],
@@ -64,7 +64,17 @@ const userModel = (sequelize, DataTypes) => {
 
         User.hasMany(models.Event, {
             foreignKey: "creatorId",
-            onDelete: "CASCADE",
+            onDelete: "SET NULL",
+        });
+
+        User.hasMany(models.Notification, {
+            foreignKey: "senderId",
+            as: "sentNotifications",
+        });
+
+        User.hasMany(models.Notification, {
+            foreignKey: "recipientId",
+            as: "receivedNotifications",
         });
 
         User.hasMany(models.OTP, { foreignKey: "userId", onDelete: "CASCADE" });

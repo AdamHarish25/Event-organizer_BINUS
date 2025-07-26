@@ -14,6 +14,11 @@ const eventModel = (sequelize, DataTypes) => {
             creatorId: {
                 type: DataTypes.UUID,
                 allowNull: false,
+                references: {
+                    model: "users",
+                    key: "id",
+                },
+                onDelete: "CASCADE",
             },
             eventName: {
                 type: DataTypes.STRING(70),
@@ -36,7 +41,12 @@ const eventModel = (sequelize, DataTypes) => {
                 allowNull: false,
             },
             status: {
-                type: DataTypes.ENUM("accepted", "pending", "rejected"),
+                type: DataTypes.ENUM(
+                    "pending",
+                    "revised",
+                    "accepted",
+                    "rejected"
+                ),
                 allowNull: false,
                 defaultValue: "pending",
             },
@@ -61,6 +71,12 @@ const eventModel = (sequelize, DataTypes) => {
     Event.associate = (models) => {
         Event.belongsTo(models.User, {
             foreignKey: "creatorId",
+            as: "creator",
+        });
+
+        Event.hasMany(models.Notification, {
+            foreignKey: "eventId",
+            as: "notifications",
             onDelete: "CASCADE",
         });
     };

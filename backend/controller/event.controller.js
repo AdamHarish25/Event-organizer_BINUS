@@ -1,6 +1,8 @@
-import { handleDeleteEvent, saveNewEvent } from "../service/event.service.js";
+import {
+    handleDeleteEvent,
+    saveNewEventAndNotify,
+} from "../service/event.service.js";
 import db from "../model/index.js";
-import AppError from "../utils/AppError.js";
 
 export const eventViewer = async (req, res, next) => {
     try {
@@ -18,11 +20,14 @@ export const eventViewer = async (req, res, next) => {
 
 export const createEvent = async (req, res, next) => {
     const model = {
+        UserModel: db.User,
         EventModel: db.Event,
+        NotificationModel: db.Notification,
     };
 
     try {
-        await saveNewEvent(req.user.id, req.body, req.file, model);
+        await saveNewEventAndNotify(req.user.id, req.body, req.file, model);
+
         res.status(200).json({
             status: "success",
             message: "Event Successly Created",

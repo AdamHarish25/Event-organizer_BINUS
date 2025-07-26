@@ -18,6 +18,10 @@ const blacklistedTokenModel = (sequelize, DataTypes) => {
             userId: {
                 type: DataTypes.UUID,
                 allowNull: true,
+                references: {
+                    model: "users",
+                    key: "id",
+                },
             },
             reason: {
                 type: DataTypes.STRING(20),

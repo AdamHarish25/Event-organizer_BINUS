@@ -14,6 +14,10 @@ const refreshTokenModel = (sequelize, DataTypes) => {
             ownerId: {
                 type: DataTypes.UUID,
                 allowNull: false,
+                references: {
+                    model: "users",
+                    key: "id",
+                },
             },
             token: {
                 type: DataTypes.STRING,
