@@ -8,7 +8,7 @@ import {
     deleteEvent,
 } from "../controller/event.controller.js";
 import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
-import { adminValidator } from "../middleware/permission.middleware.js";
+import { roleValidator } from "../middleware/permission.middleware.js";
 import { schemaValidator } from "../middleware/schemaValidator.middleware.js";
 import { eventSchema, paramsSchema } from "../validator/event.validator.js";
 import uploadPoster from "../middleware/uploadPoster.middleware.js";
@@ -30,7 +30,7 @@ router.get(
 router.post(
     "/create-event",
     accessTokenValidator(ACCESS_JWT_SECRET),
-    adminValidator,
+    roleValidator("admin"),
     handleMulter(uploadPoster.single("image")),
     schemaValidator({ body: eventSchema }),
     createEvent
@@ -38,6 +38,8 @@ router.post(
 
 router.delete(
     "/delete-event/:id",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("admin"),
     schemaValidator({ params: paramsSchema }),
     deleteEvent
 );
