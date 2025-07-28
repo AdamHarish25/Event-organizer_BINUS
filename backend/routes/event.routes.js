@@ -8,6 +8,7 @@ import {
     deleteEvent,
     createFeedback,
     editEvent,
+    rejectEvent,
 } from "../controller/event.controller.js";
 import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 import { roleValidator } from "../middleware/permission.middleware.js";
@@ -65,6 +66,14 @@ router.patch(
     handleMulter(uploadPoster.single("image")),
     schemaValidator({ body: updateEventSchema }),
     editEvent
+);
+
+router.post(
+    "/:eventId/reject",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("super_admin"),
+    schemaValidator({ params: paramsSchema }),
+    rejectEvent
 );
 
 export default router;

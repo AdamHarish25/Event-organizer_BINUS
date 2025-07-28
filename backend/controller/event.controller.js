@@ -3,6 +3,7 @@ import {
     saveNewEventAndNotify,
     sendFeedback,
     editEventService,
+    rejectEventService,
 } from "../service/event.service.js";
 import db from "../model/index.js";
 
@@ -99,6 +100,29 @@ export const editEvent = async (req, res, next) => {
         res.status(200).json({
             status: "success",
             message: "Event berhasil diperbarui.",
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const rejectEvent = async (req, res, next) => {
+    const model = {
+        UserModel: db.User,
+        EventModel: db.Event,
+        NotificationModel: db.Notification,
+    };
+
+    try {
+        const eventId = req.params.eventId;
+        const superAdminId = req.user.id;
+
+        console.log("Event yang ingin ditolak adalah : ", eventId, adminId);
+        rejectEventService(eventId, superAdminId, req.body.feedback, model);
+
+        res.status(200).json({
+            status: "success",
+            message: "Event berhasil ditolak.",
         });
     } catch (error) {
         next(error);

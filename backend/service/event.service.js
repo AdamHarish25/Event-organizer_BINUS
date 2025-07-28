@@ -282,3 +282,10 @@ export const editEventService = async (
         throw error;
     }
 };
+
+export const rejectEventService = async (
+    eventId,
+    superAdminId,
+    feedback,
+    model
+) => {};
