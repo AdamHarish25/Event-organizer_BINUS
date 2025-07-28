@@ -81,7 +81,20 @@ export const editEvent = async (req, res, next) => {
     };
 
     try {
-        await editEventService(req.params.eventId, req.body, req.file, model);
+        const eventId = req.params.eventId;
+        const adminId = req.user.id;
+        const data = req.body;
+        const image = req.file;
+
+        console.log(
+            "Data yang ingin diupdate adalah : ",
+            eventId,
+            adminId,
+            data,
+            image
+        );
+
+        await editEventService(eventId, adminId, data, image, model);
 
         res.status(200).json({
             status: "success",

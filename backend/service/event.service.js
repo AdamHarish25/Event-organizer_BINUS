@@ -1,3 +1,4 @@
+import { uuidv7 } from "uuidv7";
 import AppError from "../utils/AppError.js";
 import { generateEventAssetPaths } from "../utils/pathHelper.js";
 import { uploadPosterImage, deleteImage } from "./upload.service.js";
@@ -7,24 +8,22 @@ import socketService from "../socket/index.js";
 export const saveNewEventAndNotify = async (userId, data, file, model) => {
     const { UserModel, EventModel, NotificationModel } = model;
     const { eventName, date, time, location, speaker } = data;
+    const eventId = uuidv7();
     const { mainEventFolderPath, fullFolderPath, fileName } =
-        generateEventAssetPaths(eventName, date);
-
-    const uploadOptions = {
-        folder: fullFolderPath,
-        public_id: fileName,
-    };
+        generateEventAssetPaths(eventId);
 
     let uploadResult;
     try {
-        const io = socketService.getIO();
-
         console.log(`Uploading to folder: ${fullFolderPath}`);
-        uploadResult = await uploadPosterImage(file.buffer, uploadOptions);
+        uploadResult = await uploadPosterImage(file.buffer, {
+            folder: fullFolderPath,
+            public_id: fileName,
+        });
 
         const newEvent = await sequelize.transaction(async (t) => {
             const event = await EventModel.create(
                 {
+                    id: eventId,
                     creatorId: userId,
                     eventName,
                     date,
@@ -67,6 +66,7 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
             return event;
         });
 
+        const io = socketService.getIO();
         io.to("super_admin-room").emit("notifySuperAdmin", {
             message: "Admin membuat event baru",
             data: newEvent,
@@ -179,4 +179,106 @@ export const sendFeedback = async (eventId, superAdminId, feedback, model) => {
     }
 };
 
-export const editEventService = async (eventId, data, file, model) => {};
+export const editEventService = async (
+    eventId,
+    adminId,
+    data,
+    image,
+    model
+) => {
+    const { UserModel, EventModel, NotificationModel } = model;
+
+    let uploadResult;
+    try {
+        const { mainEventFolderPath, fullFolderPath, fileName } =
+            generateEventAssetPaths(eventId);
+
+        if (image) {
+            console.log(`Uploading to folder: ${fullFolderPath}`);
+            uploadResult = await uploadPosterImage(image.buffer, {
+                folder: fullFolderPath,
+                public_id: fileName,
+            });
+        }
+
+        const updatedEvent = await sequelize.transaction(async (t) => {
+            const event = await EventModel.findOne({
+                where: { id: eventId, creatorId: adminId },
+                transaction: t,
+            });
+
+            if (!event) {
+                throw new AppError(
+                    "Event tidak ditemukan atau Anda tidak berhak mengubahnya.",
+                    404,
+                    "NOT_FOUND"
+                );
+            }
+
+            const dataToUpdate = image
+                ? {
+                      ...data,
+                      imageUrl: uploadResult.secure_url,
+                      imagePublicId: uploadResult.public_id,
+                      imageFolderPath: mainEventFolderPath,
+                  }
+                : data;
+
+            await event.update(
+                {
+                    ...dataToUpdate,
+                    status: "revised",
+                },
+                { transaction: t }
+            );
+
+            const superAdmins = await UserModel.findAll({
+                where: { role: "super_admin" },
+                attributes: ["id"],
+                transaction: t,
+            });
+
+            console.log("Data yang mau diupdate adalah ", dataToUpdate);
+
+            const updatedPayloadData = { ...event.dataValues, ...dataToUpdate };
+            const notifications = superAdmins.map((superAdmin) => ({
+                eventId: event.id,
+                senderId: adminId,
+                recipientId: superAdmin.id,
+                notificationType: "event_revised",
+                payload: {
+                    eventName: updatedPayloadData.eventName,
+                    time: updatedPayloadData.time,
+                    date: updatedPayloadData.date,
+                    location: updatedPayloadData.location,
+                    speaker: updatedPayloadData.speaker,
+                    imageUrl: updatedPayloadData.imageUrl,
+                },
+            }));
+
+            await NotificationModel.bulkCreate(notifications, {
+                transaction: t,
+            });
+
+            return event;
+        });
+
+        const io = socketService.getIO();
+        io.to("super_admin-room").emit("eventUpdated", {
+            message: `Event "${updatedEvent.eventName}" telah diperbarui dan menunggu persetujuan.`,
+            data: updatedEvent,
+        });
+
+        return updatedEvent;
+    } catch (error) {
+        if (uploadResult) {
+            console.log(
+                `Database transaction failed. Deleting uploaded image: ${uploadResult.public_id}`
+            );
+            await deleteImage(uploadResult.public_id);
+        }
+
+        console.error("Gagal mengedit event:", error.message);
+        throw error;
+    }
+};

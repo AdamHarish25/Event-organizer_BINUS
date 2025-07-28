@@ -7,18 +7,19 @@ import {
     createEvent,
     deleteEvent,
     createFeedback,
+    editEvent,
 } from "../controller/event.controller.js";
 import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 import { roleValidator } from "../middleware/permission.middleware.js";
 import { schemaValidator } from "../middleware/schemaValidator.middleware.js";
 import {
-    eventSchema,
+    createEventSchema,
+    updateEventSchema,
     feedbackSchema,
     paramsSchema,
 } from "../validator/event.validator.js";
 import uploadPoster from "../middleware/uploadPoster.middleware.js";
 import handleMulter from "../middleware/handleMulter.js";
-import { emailValidatorSchema } from "../validator/auth.validator.js";
 
 dotenv.config({ path: "../.env" });
 
@@ -37,7 +38,7 @@ router.post(
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("admin"),
     handleMulter(uploadPoster.single("image")),
-    schemaValidator({ body: eventSchema }),
+    schemaValidator({ body: createEventSchema }),
     createEvent
 );
 
@@ -57,12 +58,13 @@ router.post(
     createFeedback
 );
 
-router.put(
+router.patch(
     "/:eventId",
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("admin"),
-    schemaValidator({ body: eventSchema }),
-    editEventService
+    handleMulter(uploadPoster.single("image")),
+    schemaValidator({ body: updateEventSchema }),
+    editEvent
 );
 
 export default router;
