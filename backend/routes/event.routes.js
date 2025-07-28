@@ -69,7 +69,7 @@ router.patch(
 );
 
 router.post(
-    "/:eventId/reject",
+    "/:id/reject",
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("super_admin"),
     schemaValidator({ params: paramsSchema }),

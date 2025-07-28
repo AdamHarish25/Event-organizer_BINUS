@@ -118,7 +118,7 @@ export const handleDeleteEvent = async (eventId, EventModel) => {
 
         return result;
     } catch (error) {
-        console.error("Gagal menghapus data:", error.message);
+        console.error("Gagal menghapus data:", error);
         throw error;
     }
 };
@@ -288,4 +288,56 @@ export const rejectEventService = async (
     superAdminId,
     feedback,
     model
-) => {};
+) => {
+    const { EventModel, NotificationModel } = model;
+
+    try {
+        const rejectEventResult = await sequelize.transaction(async (t) => {
+            const event = await EventModel.findOne({
+                where: { id: eventId },
+                transaction: t,
+            });
+
+            if (!event) {
+                throw new AppError(
+                    "Data event tidak ditemukan",
+                    404,
+                    "NOT_FOUND"
+                );
+            }
+
+            await event.update(
+                {
+                    status: "rejected",
+                },
+                { transaction: t }
+            );
+
+            const notifications = {
+                eventId: event.id,
+                senderId: superAdminId,
+                recipientId: event.creatorId,
+                notificationType: "event_rejected",
+                feedback,
+                payload: {
+                    eventName: event.eventName,
+                    time: event.time,
+                    date: event.date,
+                    location: event.location,
+                    speaker: event.speaker,
+                    imageUrl: event.imageUrl,
+                },
+            };
+
+            await NotificationModel.create(notifications, {
+                transaction: t,
+            });
+
+            return event;
+        });
+        return rejectEventResult;
+    } catch (error) {
+        console.error("Gagal reject event.", error);
+        throw error;
+    }
+};

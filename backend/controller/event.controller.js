@@ -108,17 +108,25 @@ export const editEvent = async (req, res, next) => {
 
 export const rejectEvent = async (req, res, next) => {
     const model = {
-        UserModel: db.User,
         EventModel: db.Event,
         NotificationModel: db.Notification,
     };
 
     try {
-        const eventId = req.params.eventId;
+        const eventId = req.params.id;
         const superAdminId = req.user.id;
 
-        console.log("Event yang ingin ditolak adalah : ", eventId, adminId);
-        rejectEventService(eventId, superAdminId, req.body.feedback, model);
+        console.log(
+            "Event yang ingin ditolak adalah : ",
+            eventId,
+            superAdminId
+        );
+        await rejectEventService(
+            eventId,
+            superAdminId,
+            req.body.feedback,
+            model
+        );
 
         res.status(200).json({
             status: "success",
