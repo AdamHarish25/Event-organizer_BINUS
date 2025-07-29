@@ -1,20 +1,15 @@
 import db from "../model/index.js";
-import { getEventService } from "../service/event.service.js";
+import { getCategorizedEventsService } from "../service/event.service.js";
 
 export const eventViewer = async (req, res, next) => {
-    const page = req.params.page;
-    const limit = req.param.limit;
-
     try {
-        const { data, pagination } = await getEventService(
-            db.Event,
-            page,
-            limit
+        const { current, thisWeek, next } = await getCategorizedEventsService(
+            db.Event
         );
+
         res.json({
             status: "success",
-            data,
-            pagination,
+            event: { current, thisWeek, next },
         });
     } catch (error) {
         next(error);

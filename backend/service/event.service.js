@@ -1,32 +1,61 @@
 import { uuidv7 } from "uuidv7";
+import { startOfToday, isToday, isThisWeek } from "date-fns";
+import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
 import { generateEventAssetPaths } from "../utils/pathHelper.js";
 import { uploadPosterImage, deleteImage } from "./upload.service.js";
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
 
-export const getEventService = async (EventModel, page = 1, limit = 10) => {
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const offset = (pageNum - 1) * limitNum;
-
+export const getCategorizedEventsService = async (EventModel) => {
     try {
-        const { count, rows } = await EventModel.findAndCountAll({
-            limit: limitNum,
-            offset,
-            order: [["createdAt", "DESC"]],
-        });
-        return {
-            data: rows,
-            pagination: {
-                totalItems: count,
-                totalPages: Math.ceil(count / limitNum),
-                currentPage: pageNum,
-                pageSize: limitNum,
+        const allUpcomingEvents = await EventModel.findAll({
+            where: {
+                date: { [Op.gte]: startOfToday() },
+                status: "approved",
             },
+            order: [
+                ["date", "ASC"],
+                ["time", "ASC"],
+            ],
+            attributes: [
+                "id",
+                "eventName",
+                "date",
+                "time",
+                "location",
+                "speaker",
+                "imageUrl",
+            ],
+        });
+
+        const categorizedEvents = {
+            current: [],
+            thisWeek: [],
+            next: [],
         };
+
+        for (const event of allUpcomingEvents) {
+            const eventDate = new Date(event.date);
+
+            if (isToday(eventDate)) {
+                categorizedEvents.current.push(event);
+            } else if (isThisWeek(eventDate, { weekStartsOn: 1 })) {
+                categorizedEvents.thisWeek.push(event);
+            } else {
+                categorizedEvents.next.push(event);
+            }
+        }
+
+        const finalResult = {
+            current: categorizedEvents.current,
+            thisWeek: categorizedEvents.thisWeek,
+            next: categorizedEvents.next,
+        };
+
+        return finalResult;
     } catch (error) {
-        console.error("Gagal mengambil data events:", error);
+        console.error("Gagal mengambil data event terkategori:", error);
         throw error;
     }
 };
