@@ -46,7 +46,7 @@ const notificationModel = (sequelize, DataTypes) => {
                 type: DataTypes.ENUM(
                     "event_created",
                     "event_revised",
-                    "event_accepted",
+                    "event_approved",
                     "event_rejected"
                 ),
                 allowNull: false,

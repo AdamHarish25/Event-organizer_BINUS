@@ -44,7 +44,7 @@ const eventModel = (sequelize, DataTypes) => {
                 type: DataTypes.ENUM(
                     "pending",
                     "revised",
-                    "accepted",
+                    "approved",
                     "rejected"
                 ),
                 allowNull: false,
