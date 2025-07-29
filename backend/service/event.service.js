@@ -348,3 +348,9 @@ export const rejectEventService = async (
         throw error;
     }
 };
+export const approveEventService = async (
+    eventId,
+    superAdminId,
+    feedback,
+    model
+) => {};

@@ -4,6 +4,7 @@ import {
     sendFeedback,
     editEventService,
     rejectEventService,
+    approveEventService,
 } from "../service/event.service.js";
 import db from "../model/index.js";
 
@@ -131,6 +132,31 @@ export const rejectEvent = async (req, res, next) => {
         res.status(200).json({
             status: "success",
             message: "Event berhasil ditolak.",
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+export const approveEvent = async (req, res, next) => {
+    const model = {
+        EventModel: db.Event,
+        NotificationModel: db.Notification,
+    };
+
+    try {
+        const eventId = req.params.id;
+        const superAdminId = req.user.id;
+
+        console.log(
+            "Event yang ingin disetujui adalah : ",
+            eventId,
+            superAdminId
+        );
+        await approveEventService(eventId, superAdminId, model);
+
+        res.status(200).json({
+            status: "success",
+            message: "Event berhasil disetujui.",
         });
     } catch (error) {
         next(error);

@@ -9,6 +9,7 @@ import {
     createFeedback,
     editEvent,
     rejectEvent,
+    approveEvent,
 } from "../controller/event.controller.js";
 import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 import { roleValidator } from "../middleware/permission.middleware.js";
@@ -74,6 +75,14 @@ router.post(
     roleValidator("super_admin"),
     schemaValidator({ params: paramsSchema }),
     rejectEvent
+);
+
+router.post(
+    "/:id/approve",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("super_admin"),
+    schemaValidator({ params: paramsSchema }),
+    approveEvent
 );
 
 export default router;
