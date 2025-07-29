@@ -348,9 +348,56 @@ export const rejectEventService = async (
         throw error;
     }
 };
-export const approveEventService = async (
-    eventId,
-    superAdminId,
-    feedback,
-    model
-) => {};
+export const approveEventService = async (eventId, superAdminId, model) => {
+    const { EventModel, NotificationModel } = model;
+
+    try {
+        const approveEventResult = await sequelize.transaction(async (t) => {
+            const event = await EventModel.findOne({
+                where: { id: eventId },
+                transaction: t,
+            });
+
+            if (!event) {
+                throw new AppError(
+                    "Data event tidak ditemukan",
+                    404,
+                    "NOT_FOUND"
+                );
+            }
+
+            await event.update(
+                {
+                    status: "approved",
+                },
+                { transaction: t }
+            );
+
+            const notifications = {
+                eventId: event.id,
+                senderId: superAdminId,
+                recipientId: event.creatorId,
+                notificationType: "event_approved",
+                payload: {
+                    eventName: event.eventName,
+                    time: event.time,
+                    date: event.date,
+                    location: event.location,
+                    speaker: event.speaker,
+                    imageUrl: event.imageUrl,
+                },
+            };
+
+            await NotificationModel.create(notifications, {
+                transaction: t,
+            });
+
+            return event;
+        });
+
+        return approveEventResult;
+    } catch (error) {
+        console.error("Gagal approve event.", error);
+        throw error;
+    }
+};
