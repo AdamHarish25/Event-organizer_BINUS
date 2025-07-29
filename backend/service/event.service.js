@@ -5,6 +5,19 @@ import { uploadPosterImage, deleteImage } from "./upload.service.js";
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
 
+export const getEventService = async (model) => {
+    const { EventModel } = model;
+    try {
+        const events = await EventModel.findAll({
+            order: [["createdAt", "DESC"]],
+        });
+        return events;
+    } catch (error) {
+        console.error("Gagal mengambil data events:", error);
+        throw error;
+    }
+};
+
 export const saveNewEventAndNotify = async (userId, data, file, model) => {
     const { UserModel, EventModel, NotificationModel } = model;
     const { eventName, date, time, location, speaker } = data;
@@ -348,6 +361,7 @@ export const rejectEventService = async (
         throw error;
     }
 };
+
 export const approveEventService = async (eventId, superAdminId, model) => {
     const { EventModel, NotificationModel } = model;
 
