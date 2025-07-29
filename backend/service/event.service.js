@@ -5,13 +5,26 @@ import { uploadPosterImage, deleteImage } from "./upload.service.js";
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
 
-export const getEventService = async (model) => {
-    const { EventModel } = model;
+export const getEventService = async (EventModel, page = 1, limit = 10) => {
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const offset = (pageNum - 1) * limitNum;
+
     try {
-        const events = await EventModel.findAll({
+        const { count, rows } = await EventModel.findAndCountAll({
+            limit: limitNum,
+            offset,
             order: [["createdAt", "DESC"]],
         });
-        return events;
+        return {
+            data: rows,
+            pagination: {
+                totalItems: count,
+                totalPages: Math.ceil(count / limitNum),
+                currentPage: pageNum,
+                pageSize: limitNum,
+            },
+        };
     } catch (error) {
         console.error("Gagal mengambil data events:", error);
         throw error;

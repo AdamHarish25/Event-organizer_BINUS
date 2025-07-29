@@ -11,7 +11,7 @@ const { ACCESS_JWT_SECRET } = process.env;
 const router = express.Router();
 
 router.get(
-    "/event",
+    "/event/:page/:limit",
     accessTokenValidator(ACCESS_JWT_SECRET),
     authenticateBlacklistedToken,
     eventViewer
