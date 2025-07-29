@@ -56,7 +56,6 @@ export const getCategorizedEventsService = async (EventModel) => {
         return finalResult;
     } catch (error) {
         console.error("Gagal mengambil data event terkategori:", error);
-        throw error;
     }
 };
 
