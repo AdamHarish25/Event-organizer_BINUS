@@ -395,6 +395,12 @@ export const approveEventService = async (eventId, superAdminId, model) => {
             return event;
         });
 
+        const io = socketService.getIO();
+        io.to(approveEventResult.recipientId).emit("eventApproved", {
+            message: "Your Request has been APPROVED",
+            data: approveEventResult,
+        });
+
         return approveEventResult;
     } catch (error) {
         console.error("Gagal approve event.", error);
