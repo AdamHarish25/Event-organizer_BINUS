@@ -335,6 +335,13 @@ export const rejectEventService = async (
 
             return event;
         });
+
+        const io = socketService.getIO();
+        io.to(rejectEventResult.recipientId).emit("eventRejected", {
+            message: "Your Request has been REJECTED",
+            data: rejectEventResult,
+        });
+
         return rejectEventResult;
     } catch (error) {
         console.error("Gagal reject event.", error);
