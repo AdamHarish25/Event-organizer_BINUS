@@ -28,7 +28,11 @@ const eventModel = (sequelize, DataTypes) => {
                 type: DataTypes.DATEONLY,
                 allowNull: false,
             },
-            time: {
+            startTime: {
+                type: DataTypes.TIME,
+                allowNull: false,
+            },
+            endTime: {
                 type: DataTypes.TIME,
                 allowNull: false,
             },
