@@ -10,49 +10,103 @@ const baseEventSchema = Joi.object({
         "string.empty": "Nama event tidak boleh kosong.",
         "string.min": "Nama event minimal 3 karakter.",
         "string.max": "Nama event maksimal 70 karakter.",
-        "any.required": "Nama event wajib diisi.",
     }),
 
-    time: Joi.string()
+    startTime: Joi.string()
         .pattern(/^([01]\d|2[0-3]):([0-5]\d)$/)
         .messages({
-            "string.base": "Waktu event harus berupa teks.",
-            "string.empty": "Waktu event tidak boleh kosong.",
+            "string.base": "Waktu mulai event harus berupa teks.",
+            "string.empty": "Waktu mulai event tidak boleh kosong.",
             "string.pattern.base":
-                "Format waktu tidak valid. Gunakan format HH:MM (misal: 14:30).",
-            "any.required": "Waktu event wajib diisi.",
+                "Format waktu mulai tidak valid. Gunakan format HH:MM (misal: 14:30).",
         }),
 
-    // Di masa depan, mungkin ini akan menyebabkan error, nanti gati pake .iso()
-    date: Joi.string()
-        .pattern(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}\.\d{3}Z)?$/)
+    endTime: Joi.string()
+        .pattern(/^([01]\d|2[0-3]):([0-5]\d)$/)
         .custom((value, helpers) => {
-            const timeValue = helpers?.state?.ancestors?.[0]?.time;
+            const data = helpers.state.ancestors[0] || {};
+            const { startTime } = data;
 
-            if (!timeValue || !/^\d{2}:\d{2}$/.test(timeValue)) {
+            if (!startTime || !value) {
                 return value;
             }
 
-            const [hours, minutes] = timeValue.split(":").map(Number);
-            const eventDateTime = new Date(value);
-            eventDateTime.setHours(hours, minutes, 0, 0);
+            const [startHour, startMinute] = startTime.split(":").map(Number);
+            const [endHour, endMinute] = value.split(":").map(Number);
 
-            if (isNaN(eventDateTime.getTime())) {
-                return helpers.error("datetime.invalid");
+            const startTotalMinutes = startHour * 60 + startMinute;
+            const endTotalMinutes = endHour * 60 + endMinute;
+
+            if (endTotalMinutes <= startTotalMinutes) {
+                return helpers.error("time.endBeforeStart");
             }
 
-            const now = new Date();
-            if (eventDateTime <= now) {
-                return helpers.error("datetime.past");
+            const durationMinutes = endTotalMinutes - startTotalMinutes;
+            if (durationMinutes < 15) {
+                return helpers.error("time.durationTooShort");
+            }
+
+            if (durationMinutes > 720) {
+                return helpers.error("time.durationTooLong");
             }
 
             return value;
         })
         .messages({
-            "date.base": "Tanggal event harus berupa tanggal.",
-            "date.format": "Format tanggal harus ISO (YYYY-MM-DD).",
-            "datetime.past": "Tanggal dan waktu tidak boleh di masa lalu.",
-            "any.required": "Tanggal wajib diisi.",
+            "string.base": "Waktu selesai event harus berupa teks.",
+            "string.empty": "Waktu selesai event tidak boleh kosong.",
+            "string.pattern.base":
+                "Format waktu selesai tidak valid. Gunakan format HH:MM (misal: 16:30).",
+            "time.endBeforeStart":
+                "Waktu selesai harus lebih besar dari waktu mulai.",
+            "time.durationTooShort": "Durasi event minimal 15 menit.",
+            "time.durationTooLong": "Durasi event maksimal 12 jam.",
+        }),
+
+    date: Joi.string()
+        .pattern(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}\.\d{3}Z)?$/)
+        .custom((value, helpers) => {
+            const data = helpers.state.ancestors[0] || {};
+            const { startTime, endTime } = data;
+
+            const eventDate = new Date(value);
+            if (isNaN(eventDate.getTime())) {
+                return helpers.error("date.invalid");
+            }
+
+            if (startTime && /^\d{2}:\d{2}$/.test(startTime)) {
+                const [hours, minutes] = startTime.split(":").map(Number);
+                const eventStartDateTime = new Date(eventDate);
+                eventStartDateTime.setHours(hours, minutes, 0, 0);
+
+                const now = new Date();
+                const fiveMinutesFromNow = new Date(
+                    now.getTime() + 5 * 60 * 1000
+                );
+
+                if (eventStartDateTime <= fiveMinutesFromNow) {
+                    return helpers.error("datetime.past");
+                }
+            }
+
+            const oneYearFromNow = new Date();
+            oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+            if (eventDate > oneYearFromNow) {
+                return helpers.error("date.tooFarFuture");
+            }
+
+            return value;
+        })
+        .messages({
+            "string.base": "Tanggal event harus berupa teks.",
+            "string.empty": "Tanggal event tidak boleh kosong.",
+            "string.pattern.base": "Format tanggal harus ISO (YYYY-MM-DD).",
+            "date.invalid": "Tanggal tidak valid.",
+            "datetime.past":
+                "Tanggal dan waktu event tidak boleh di masa lalu.",
+            "date.tooFarFuture":
+                "Tanggal event tidak boleh lebih dari 1 tahun ke depan.",
         }),
 
     location: Joi.string().trim().min(5).max(100).messages({
@@ -60,7 +114,6 @@ const baseEventSchema = Joi.object({
         "string.empty": "Lokasi event tidak boleh kosong.",
         "string.min": "Lokasi event minimal 5 karakter.",
         "string.max": "Lokasi event maksimal 100 karakter.",
-        "any.required": "Lokasi event wajib diisi.",
     }),
 
     speaker: Joi.string().trim().min(3).max(100).messages({
@@ -68,7 +121,6 @@ const baseEventSchema = Joi.object({
         "string.empty": "Nama speaker tidak boleh kosong.",
         "string.min": "Nama speaker minimal 3 karakter.",
         "string.max": "Nama speaker maksimal 100 karakter.",
-        "any.required": "Nama speaker wajib diisi.",
     }),
 
     image: Joi.object({
@@ -76,32 +128,91 @@ const baseEventSchema = Joi.object({
         originalname: Joi.string().required(),
         encoding: Joi.string().required(),
         mimetype: Joi.string()
-            .valid("image/jpeg", "image/png", "image/gif")
+            .valid(
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/gif",
+                "image/webp"
+            )
             .required()
             .messages({
-                "any.only": "Tipe file harus JPEG, PNG, atau WebP",
+                "any.only": "Tipe file harus JPEG, JPG, PNG, GIF, atau WebP.",
             }),
         size: Joi.number()
+            .min(1024)
             .max(10 * 1024 * 1024)
             .required()
             .messages({
+                "number.min": "Ukuran gambar minimal 1KB.",
                 "number.max": "Ukuran gambar tidak boleh melebihi 10MB.",
             }),
         buffer: Joi.binary().required(),
     })
         .messages({
-            "any.required": "Gambar poster wajib diisi.",
+            "object.base": "Format gambar tidak valid.",
         })
         .unknown(true),
-});
+})
+    .custom((value, helpers) => {
+        const { startTime, endTime, date } = value;
+
+        if (startTime && endTime && date) {
+            try {
+                const [startHour, startMinute] = startTime
+                    .split(":")
+                    .map(Number);
+                const [endHour, endMinute] = endTime.split(":").map(Number);
+
+                const eventDate = new Date(date);
+                const startDateTime = new Date(eventDate);
+                const endDateTime = new Date(eventDate);
+
+                startDateTime.setHours(startHour, startMinute, 0, 0);
+                endDateTime.setHours(endHour, endMinute, 0, 0);
+
+                if (endDateTime <= startDateTime) {
+                    return helpers.error("schema.timeLogicError");
+                }
+
+                const now = new Date();
+                if (startDateTime <= now) {
+                    return helpers.error("schema.eventInPast");
+                }
+            } catch (error) {
+                return helpers.error("schema.dateTimeParseError");
+            }
+        }
+
+        return value;
+    })
+    .messages({
+        "schema.timeLogicError":
+            "Terjadi kesalahan logika waktu. Pastikan waktu selesai lebih besar dari waktu mulai.",
+        "schema.eventInPast": "Event tidak boleh dijadwalkan di masa lalu.",
+        "schema.dateTimeParseError":
+            "Terjadi kesalahan dalam memproses tanggal dan waktu.",
+    });
 
 export const createEventSchema = baseEventSchema.keys({
-    eventName: baseEventSchema.extract("eventName").required(),
-    time: baseEventSchema.extract("time").required(),
-    date: baseEventSchema.extract("date").required(),
-    location: baseEventSchema.extract("location").required(),
-    speaker: baseEventSchema.extract("speaker").required(),
-    image: baseEventSchema.extract("image").required(),
+    eventName: baseEventSchema.extract("eventName").required().messages({
+        "any.required": "Nama event wajib diisi.",
+    }),
+    startTime: baseEventSchema.extract("startTime").required().messages({
+        "any.required": "Waktu mulai event wajib diisi.",
+    }),
+    endTime: baseEventSchema.extract("endTime").required().messages({
+        "any.required": "Waktu selesai event wajib diisi.",
+    }),
+    date: baseEventSchema.extract("date").required().messages({
+        "any.required": "Tanggal event wajib diisi..",
+    }),
+    location: baseEventSchema.extract("location").required().messages({
+        "any.required": "Lokasi event wajib diisi.",
+    }),
+    image: baseEventSchema.extract("image").required().messages({
+        "any.required": "Poster event wajib diisi.",
+    }),
 });
 
 export const updateEventSchema = baseEventSchema;
