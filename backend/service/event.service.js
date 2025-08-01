@@ -62,7 +62,7 @@ export const getCategorizedEventsService = async (EventModel) => {
 
 export const saveNewEventAndNotify = async (userId, data, file, model) => {
     const { UserModel, EventModel, NotificationModel } = model;
-    const { eventName, date, time, location, speaker } = data;
+    const { eventName, date, startTime, endTime, location, speaker } = data;
     const eventId = uuidv7();
     const { mainEventFolderPath, fullFolderPath, fileName } =
         generateEventAssetPaths(eventId);
@@ -82,7 +82,8 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
                     creatorId: userId,
                     eventName,
                     date,
-                    time,
+                    startTime,
+                    endTime,
                     location,
                     speaker,
                     status: "pending",
@@ -106,7 +107,7 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
                 notificationType: "event_created",
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,

@@ -42,7 +42,7 @@ const eventModel = (sequelize, DataTypes) => {
             },
             speaker: {
                 type: DataTypes.STRING(100),
-                allowNull: false,
+                allowNull: true,
             },
             status: {
                 type: DataTypes.ENUM(
