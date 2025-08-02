@@ -145,17 +145,29 @@ export const handleDeleteEvent = async (eventId, EventModel) => {
     try {
         const result = await sequelize.transaction(async (t) => {
             const event = await EventModel.findOne({
-                where: { id: eventId },
+                where: { id: eventId, creatorId: adminId },
                 attributes: ["id", "imagePublicId"],
                 transaction: t,
             });
 
             if (!event) {
-                throw new AppError(
-                    "Data event tidak ditemukan",
-                    404,
-                    "NOT_FOUND"
-                );
+                const eventExists = await EventModel.findByPk(eventId, {
+                    transaction: t,
+                });
+
+                if (!eventExists) {
+                    throw new AppError(
+                        "Event tidak ditemukan",
+                        404,
+                        "EVENT_NOT_FOUND"
+                    );
+                } else {
+                    throw new AppError(
+                        "Anda tidak memiliki akses untuk menghapus event ini",
+                        403,
+                        "FORBIDDEN"
+                    );
+                }
             }
 
             if (event.imagePublicId) {
@@ -264,11 +276,23 @@ export const editEventService = async (
             });
 
             if (!event) {
-                throw new AppError(
-                    "Event tidak ditemukan atau Anda tidak berhak mengubahnya.",
-                    404,
-                    "NOT_FOUND"
-                );
+                const eventExists = await EventModel.findByPk(eventId, {
+                    transaction: t,
+                });
+
+                if (!eventExists) {
+                    throw new AppError(
+                        "Event tidak ditemukan",
+                        404,
+                        "EVENT_NOT_FOUND"
+                    );
+                } else {
+                    throw new AppError(
+                        "Anda tidak memiliki akses untuk mengubah event ini",
+                        403,
+                        "FORBIDDEN"
+                    );
+                }
             }
 
             const dataToUpdate = image
