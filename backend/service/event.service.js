@@ -16,13 +16,14 @@ export const getCategorizedEventsService = async (EventModel) => {
             },
             order: [
                 ["date", "ASC"],
-                ["time", "ASC"],
+                ["startTime", "ASC"],
             ],
             attributes: [
                 "id",
                 "eventName",
                 "date",
-                "time",
+                "startTime",
+                "endTime",
                 "location",
                 "speaker",
                 "imageUrl",
