@@ -60,6 +60,14 @@ const notificationModel = (sequelize, DataTypes) => {
         {
             tableName: "notifications",
             timestamps: true,
+            indexes: [
+                {
+                    fields: ["recipientId"],
+                },
+                {
+                    fields: ["isRead"],
+                },
+            ],
         }
     );
 

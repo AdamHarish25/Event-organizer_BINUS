@@ -52,6 +52,10 @@ const userModel = (sequelize, DataTypes) => {
                     fields: ["email"],
                     name: "email_idx",
                 },
+                {
+                    fields: ["role"],
+                    name: "role_idx",
+                },
             ],
         }
     );

@@ -69,6 +69,14 @@ const eventModel = (sequelize, DataTypes) => {
         {
             tableName: "events",
             timestamps: true,
+            indexes: [
+                {
+                    fields: ["status"],
+                },
+                {
+                    fields: ["date"],
+                },
+            ],
         }
     );
 

@@ -22,6 +22,7 @@ const refreshTokenModel = (sequelize, DataTypes) => {
             token: {
                 type: DataTypes.STRING,
                 allowNull: false,
+                unique: true,
             },
             isRevoked: {
                 type: DataTypes.BOOLEAN,
@@ -40,6 +41,14 @@ const refreshTokenModel = (sequelize, DataTypes) => {
         {
             tableName: "refresh_tokens",
             timestamps: false,
+            indexes: [
+                {
+                    fields: ["ownerId"],
+                },
+                {
+                    fields: ["expiresAt"],
+                },
+            ],
         }
     );
 

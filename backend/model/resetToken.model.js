@@ -22,6 +22,7 @@ const resetTokenModel = (sequelize, DataTypes) => {
             token: {
                 type: DataTypes.STRING,
                 allowNull: false,
+                unique: true,
             },
             expiresAt: {
                 type: DataTypes.DATE,
@@ -35,6 +36,14 @@ const resetTokenModel = (sequelize, DataTypes) => {
         {
             tableName: "reset_tokens",
             timestamps: false,
+            indexes: [
+                {
+                    fields: ["userId"],
+                },
+                {
+                    fields: ["expiresAt"],
+                },
+            ],
         }
     );
 

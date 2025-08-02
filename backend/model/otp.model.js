@@ -43,6 +43,16 @@ const OTPModel = (sequelize, DataTypes) => {
         {
             tableName: "otps",
             timestamps: false,
+            indexes: [
+                {
+                    name: "otp_verification_idx",
+                    fields: ["userId", "code", "verified"],
+                },
+                {
+                    name: "otp_expires_at_idx",
+                    fields: ["expiresAt"],
+                },
+            ],
         }
     );
 

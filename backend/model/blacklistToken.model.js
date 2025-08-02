@@ -12,8 +12,9 @@ const blacklistedTokenModel = (sequelize, DataTypes) => {
                 unique: true,
             },
             token: {
-                type: DataTypes.TEXT,
+                type: DataTypes.STRING,
                 allowNull: false,
+                unique: true,
             },
             userId: {
                 type: DataTypes.UUID,
@@ -39,6 +40,10 @@ const blacklistedTokenModel = (sequelize, DataTypes) => {
                 {
                     fields: ["expiresAt"],
                     name: "expires_at_idx",
+                },
+                {
+                    fields: ["userId"],
+                    name: "user_id_idx",
                 },
             ],
         }
