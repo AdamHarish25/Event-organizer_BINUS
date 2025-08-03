@@ -1,3 +1,5 @@
+import AppError from "../utils/AppError.js";
+
 export const getNotificationService = async (
     userId,
     page,
@@ -33,4 +35,29 @@ export const getNotificationService = async (
     }
 };
 
-export const markAsReadService = async () => {};
+export const markAsReadService = async (
+    notificationId,
+    userId,
+    NotificationModel
+) => {
+    try {
+        const [updatedRows] = await NotificationModel.update(
+            { isRead: true },
+            {
+                where: {
+                    id: notificationId,
+                    recipientId: userId,
+                },
+            }
+        );
+
+        if (updatedRows === 0) {
+            throw new AppError("Notifikasi tidak ditemukan.", 404, "NOT_FOUND");
+        }
+
+        return true;
+    } catch (error) {
+        console.error("Gagal menandai notifikasi sebagai dibaca:", error);
+        throw error;
+    }
+};
