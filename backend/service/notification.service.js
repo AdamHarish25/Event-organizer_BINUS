@@ -32,3 +32,5 @@ export const getNotificationService = async (
         throw error;
     }
 };
+
+export const markAsReadService = async () => {};
