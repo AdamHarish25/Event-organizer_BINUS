@@ -13,3 +13,5 @@ router.get(
     accessTokenValidator(ACCESS_JWT_SECRET),
     getNotification
 );
+
+export default router;
