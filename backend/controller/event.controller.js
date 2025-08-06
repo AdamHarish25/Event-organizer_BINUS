@@ -42,8 +42,14 @@ export const createEvent = async (req, res, next) => {
 };
 
 export const deleteEvent = async (req, res, next) => {
+    const model = {
+        UserModel: db.User,
+        EventModel: db.Event,
+        NotificationModel: db.Notification,
+    };
+
     try {
-        await handleDeleteEvent(req.params.id, db.Event);
+        await handleDeleteEvent(req.user.id, req.params.id, model);
 
         res.status(200).json({
             status: "success",
@@ -137,6 +143,7 @@ export const rejectEvent = async (req, res, next) => {
         next(error);
     }
 };
+
 export const approveEvent = async (req, res, next) => {
     const model = {
         EventModel: db.Event,

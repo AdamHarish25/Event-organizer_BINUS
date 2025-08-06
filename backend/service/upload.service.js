@@ -21,7 +21,7 @@ export const uploadPosterImage = (buffer, options) => {
     });
 };
 
-export const deleteEvent = async (folderPath) => {
+export const deleteEventFolder = async (folderPath) => {
     try {
         await cloudinary.api.delete_resources_by_prefix(folderPath);
         await cloudinary.api.delete_folder(folderPath);
@@ -31,7 +31,7 @@ export const deleteEvent = async (folderPath) => {
     }
 };
 
-export const deleteImage = async (imagePublicId) => {
+export const deleteSingleFile = async (imagePublicId) => {
     try {
         const result = await cloudinary.uploader.destroy(imagePublicId);
         console.log(
