@@ -49,7 +49,7 @@ export const deleteEvent = async (req, res, next) => {
     };
 
     try {
-        await handleDeleteEvent(req.user.id, req.params.id, model);
+        await handleDeleteEvent(req.user.id, req.params.eventId, model);
 
         res.status(200).json({
             status: "success",
@@ -120,7 +120,7 @@ export const rejectEvent = async (req, res, next) => {
     };
 
     try {
-        const eventId = req.params.id;
+        const eventId = req.params.eventId;
         const superAdminId = req.user.id;
 
         console.log(
@@ -151,7 +151,7 @@ export const approveEvent = async (req, res, next) => {
     };
 
     try {
-        const eventId = req.params.id;
+        const eventId = req.params.eventId;
         const superAdminId = req.user.id;
 
         console.log(

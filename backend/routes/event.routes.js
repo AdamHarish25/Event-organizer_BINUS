@@ -18,7 +18,7 @@ import {
     createEventSchema,
     updateEventSchema,
     feedbackSchema,
-    paramsSchema,
+    eventParamsSchema,
 } from "../validator/event.validator.js";
 import uploadPoster from "../middleware/uploadPoster.middleware.js";
 import handleMulter from "../middleware/handleMulter.js";
@@ -28,15 +28,16 @@ dotenv.config({ path: "../.env" });
 const { ACCESS_JWT_SECRET } = process.env;
 const router = express.Router();
 
+// Basic CRUD
 router.get(
-    "/get-event",
+    "/",
     accessTokenValidator(ACCESS_JWT_SECRET),
     authenticateBlacklistedToken,
     eventViewer
 );
 
 router.post(
-    "/create-event",
+    "/",
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("admin"),
     handleMulter(uploadPoster.single("image")),
@@ -44,45 +45,52 @@ router.post(
     createEvent
 );
 
-router.delete(
-    "/delete-event/:id",
+router.patch(
+    "/:eventId",
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("admin"),
-    schemaValidator({ params: paramsSchema }),
+    handleMulter(uploadPoster.single("image")),
+    schemaValidator({
+        params: eventParamsSchema,
+        body: updateEventSchema,
+    }),
+    editEvent
+);
+
+router.delete(
+    "/:eventId",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("admin"),
+    schemaValidator({ params: eventParamsSchema }),
     deleteEvent
+);
+
+// Event Management Actions
+router.post(
+    "/:eventId/approve",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("super_admin"),
+    schemaValidator({ params: eventParamsSchema }),
+    approveEvent
+);
+
+router.post(
+    "/:eventId/reject",
+    accessTokenValidator(ACCESS_JWT_SECRET),
+    roleValidator("super_admin"),
+    schemaValidator({ params: eventParamsSchema }),
+    rejectEvent
 );
 
 router.post(
     "/:eventId/feedback",
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("super_admin"),
-    schemaValidator({ body: feedbackSchema }),
+    schemaValidator({
+        params: eventParamsSchema,
+        body: feedbackSchema,
+    }),
     createFeedback
-);
-
-router.patch(
-    "/:eventId",
-    accessTokenValidator(ACCESS_JWT_SECRET),
-    roleValidator("admin"),
-    handleMulter(uploadPoster.single("image")),
-    schemaValidator({ body: updateEventSchema }),
-    editEvent
-);
-
-router.post(
-    "/:id/reject",
-    accessTokenValidator(ACCESS_JWT_SECRET),
-    roleValidator("super_admin"),
-    schemaValidator({ params: paramsSchema }),
-    rejectEvent
-);
-
-router.post(
-    "/:id/approve",
-    accessTokenValidator(ACCESS_JWT_SECRET),
-    roleValidator("super_admin"),
-    schemaValidator({ params: paramsSchema }),
-    approveEvent
 );
 
 export default router;
