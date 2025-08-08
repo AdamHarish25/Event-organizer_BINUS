@@ -15,7 +15,7 @@ const { ACCESS_JWT_SECRET } = process.env;
 const router = express.Router();
 
 router.get(
-    "/get-notification",
+    "/",
     accessTokenValidator(ACCESS_JWT_SECRET),
     authenticateBlacklistedToken,
     getNotification
