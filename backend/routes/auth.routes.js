@@ -16,6 +16,7 @@ import {
     logout,
     refreshAccessToken,
 } from "../controller/auth.controller.js";
+import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 
 dotenv.config({ path: "../.env" });
 
@@ -31,6 +32,7 @@ router.post("/login", schemaValidator({ body: loginValidatorSchema }), login);
 router.post(
     "/logout",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     refreshTokenValidator(REFRESH_JWT_SECRET),
     logout
 );
