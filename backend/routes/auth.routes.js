@@ -34,8 +34,8 @@ router.post(
     refreshTokenValidator(REFRESH_JWT_SECRET),
     logout
 );
-router.get(
-    "/token",
+router.post(
+    "/refresh",
     refreshTokenValidator(REFRESH_JWT_SECRET),
     refreshAccessToken
 );
