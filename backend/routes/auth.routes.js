@@ -1,7 +1,10 @@
 import express from "express";
 import dotenv from "dotenv";
 
-import { loginValidatorSchema } from "../validator/auth.validator.js";
+import {
+    loginValidatorSchema,
+    registerValidatorSchema,
+} from "../validator/auth.validator.js";
 import { schemaValidator } from "../middleware/schemaValidator.middleware.js";
 import {
     accessTokenValidator,
@@ -19,7 +22,11 @@ dotenv.config({ path: "../.env" });
 const { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET } = process.env;
 const router = express.Router();
 
-router.post("/register", register);
+router.post(
+    "/register",
+    schemaValidator({ body: registerValidatorSchema }),
+    register
+);
 router.post("/login", schemaValidator({ body: loginValidatorSchema }), login);
 router.post(
     "/logout",

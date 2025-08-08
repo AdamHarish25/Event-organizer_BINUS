@@ -57,3 +57,53 @@ export const otpValidatorSchema = Joi.object({
     email: emailSchema,
     otp: otpSchema,
 });
+
+export const registerValidatorSchema = Joi.object({
+    studentId: Joi.string()
+        .length(10)
+        .alphanum()
+        .optional()
+        .allow(null)
+        .messages({
+            "string.length": "Student ID harus terdiri dari 10 karakter.",
+            "string.alphanum":
+                "Student ID hanya boleh mengandung huruf dan angka.",
+        }),
+
+    role: Joi.string()
+        .valid("student", "admin", "super_admin")
+        .required()
+        .messages({
+            "any.only":
+                "Role hanya boleh berisi student, admin, atau super_admin.",
+            "any.required": "Role wajib diisi.",
+        }),
+
+    firstName: Joi.string().min(1).max(20).required().messages({
+        "string.min": "First name minimal 1 karakter.",
+        "string.max": "First name maksimal 20 karakter.",
+        "string.empty": "First name tidak boleh kosong.",
+        "any.required": "First name wajib diisi.",
+    }),
+
+    lastName: Joi.string().min(1).max(20).required().messages({
+        "string.min": "Last name minimal 1 karakter.",
+        "string.max": "Last name maksimal 20 karakter.",
+        "string.empty": "Last name tidak boleh kosong.",
+        "any.required": "Last name wajib diisi.",
+    }),
+
+    email: emailSchema,
+
+    password: Joi.string().min(8).max(64).required().messages({
+        "string.min": "Password minimal 8 karakter.",
+        "string.max": "Password maksimal 64 karakter.",
+        "string.empty": "Password tidak boleh kosong.",
+        "any.required": "Password wajib diisi.",
+    }),
+
+    confirmPassword: Joi.any().valid(Joi.ref("password")).required().messages({
+        "any.only": "Konfirmasi password harus sama dengan password.",
+        "any.required": "Konfirmasi password wajib diisi.",
+    }),
+});
