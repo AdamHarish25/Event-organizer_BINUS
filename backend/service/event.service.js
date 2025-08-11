@@ -211,24 +211,17 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
     let adminName;
     try {
         await sequelize.transaction(async (t) => {
-            const [event, superAdmins] = await Promise.all([
-                EventModel.findOne({
-                    where: { id: eventId, creatorId: adminId },
-                    include: [
-                        {
-                            model: UserModel,
-                            as: "creator",
-                            attributes: ["firstName"],
-                        },
-                    ],
-                    transaction: t,
-                }),
-                UserModel.findAll({
-                    where: { role: "super_admin" },
-                    attributes: ["id"],
-                    transaction: t,
-                }),
-            ]);
+            const event = await EventModel.findOne({
+                where: { id: eventId, creatorId: adminId },
+                include: [
+                    {
+                        model: UserModel,
+                        as: "creator",
+                        attributes: ["firstName"],
+                    },
+                ],
+                transaction: t,
+            });
 
             if (!event) {
                 throw new AppError(
@@ -237,6 +230,12 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
                     "NOT_FOUND"
                 );
             }
+
+            const superAdmins = await UserModel.findAll({
+                where: { role: "super_admin" },
+                attributes: ["id"],
+                transaction: t,
+            });
 
             eventDataForCleanupAndNotify = event.toJSON();
             adminName = event.creator.firstName;
@@ -376,8 +375,7 @@ export const editEventService = async (
 
     let uploadResult;
     try {
-        const { mainEventFolderPath, fullFolderPath, fileName } =
-            generateEventAssetPaths(eventId);
+        const { fullFolderPath, fileName } = generateEventAssetPaths(eventId);
 
         if (image) {
             console.log(`Uploading to folder: ${fullFolderPath}`);
@@ -406,7 +404,6 @@ export const editEventService = async (
                       ...data,
                       imageUrl: uploadResult.secure_url,
                       imagePublicId: uploadResult.public_id,
-                      imageFolderPath: mainEventFolderPath,
                   }
                 : data;
 
@@ -479,7 +476,8 @@ export const rejectEventService = async (
 
     try {
         const rejectEventResult = await sequelize.transaction(async (t) => {
-            const event = await EventModel.findByPk(eventId, {
+            const event = await EventModel.findOne({
+                where: { id: eventId, status: ["pending", "revised"] },
                 transaction: t,
             });
 
