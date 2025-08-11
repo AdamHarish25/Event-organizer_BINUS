@@ -45,7 +45,7 @@ export const handleUserLogin = async (data, model, deviceName) => {
 
     const userProfile = {
         id: user.id,
-        name: user.name,
+        name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
     };
@@ -186,23 +186,6 @@ export const requestPasswordReset = async (email, model) => {
         );
     }
 };
-
-// export const requestPasswordReset = async (email, model) => {
-//     const user = await model.UserModel.findOne({
-//         where: { email },
-//     });
-
-//     if (!user || user.length === 0) {
-//         throw new AppError("Email tidak terdaftar", 404, "CLIENT_AUTH_ERROR");
-//     }
-
-//     const otp = generateOTP();
-
-//     // Ga ada yang jamin OTP berhasil disimpan ke db dan dikirim ke user
-//     // Butuh penganganan lebih
-//     await saveOTPToDatabase(user, otp, model);
-//     await sendOTPEmail(email, otp);
-// };
 
 export const resetPasswordHandler = async (
     user,
