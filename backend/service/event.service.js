@@ -240,8 +240,6 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
             eventDataForCleanupAndNotify = event.toJSON();
             adminName = event.creator.firstName;
 
-            await event.destroy({ transaction: t });
-
             const notifications = superAdmins.map((superAdmin) => ({
                 eventId: eventDataForCleanupAndNotify.id,
                 senderId: adminId,
@@ -260,6 +258,8 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
             await NotificationModel.bulkCreate(notifications, {
                 transaction: t,
             });
+
+            await event.destroy({ transaction: t });
         });
 
         if (eventDataForCleanupAndNotify?.imagePublicId) {
@@ -277,6 +277,7 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
                     return true;
                 }
 
+                parts.pop();
                 parts.pop();
                 const folderPath = parts.join("/");
 
@@ -424,7 +425,7 @@ export const editEventService = async (
             console.log("Data yang mau diupdate adalah ", dataToUpdate);
 
             const updatedPayloadData = { ...event.dataValues, ...dataToUpdate };
-            const notifications = superAdmins.map((superAdmin) => ({
+            const notificationForSuperAdmin = superAdmins.map((superAdmin) => ({
                 eventId: event.id,
                 senderId: adminId,
                 recipientId: superAdmin.id,
@@ -439,7 +440,27 @@ export const editEventService = async (
                 },
             }));
 
-            await NotificationModel.bulkCreate(notifications, {
+            const notificationForCreator = {
+                eventId: event.id,
+                senderId: adminId,
+                recipientId: adminId,
+                notificationType: "event_pending",
+                payload: {
+                    eventName: updatedPayloadData.eventName,
+                    time: updatedPayloadData.time,
+                    date: updatedPayloadData.date,
+                    location: updatedPayloadData.location,
+                    speaker: updatedPayloadData.speaker,
+                    imageUrl: updatedPayloadData.imageUrl,
+                },
+            };
+
+            const allNotification = [
+                ...notificationForSuperAdmin,
+                notificationForCreator,
+            ];
+
+            await NotificationModel.bulkCreate(allNotification, {
                 transaction: t,
             });
 
@@ -449,6 +470,14 @@ export const editEventService = async (
         const io = socketService.getIO();
         io.to("super_admin-room").emit("eventUpdated", {
             message: `Event "${updatedEvent.eventName}" telah diperbarui dan menunggu persetujuan.`,
+            data: updatedEvent,
+        });
+
+        io.to(updatedEvent.creatorId).emit("new_notification", {
+            type: "event_pending",
+            title: "Your Request is currently PENDING",
+            message: "We will inform you of the outcome as soon as possible.",
+            isRead: false,
             data: updatedEvent,
         });
 

@@ -5,12 +5,13 @@ import {
     editEventService,
     rejectEventService,
     approveEventService,
+    getCategorizedEventsService,
 } from "../service/event.service.js";
 import db from "../model/index.js";
 
 export const eventViewer = async (req, res, next) => {
     try {
-        const event = await db.Event.findAll();
+        const event = await getCategorizedEventsService(db.Event);
         res.json({
             status: "success",
             message: "Event Viewer",

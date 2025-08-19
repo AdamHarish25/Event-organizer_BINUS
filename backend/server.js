@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import app from "./app.js";
 import { testDBConnection } from "./config/dbconfig.js";
-// import { checkEmailConnection } from "./utils/emailSender.js";
+import { checkEmailConnection } from "./utils/emailSender.js";
 import socketService from "./socket/index.js";
 import http from "http";
 
@@ -9,7 +9,7 @@ dotenv.config();
 
 const startServer = async () => {
     try {
-        // await checkEmailConnection();
+        await checkEmailConnection();
         await testDBConnection();
 
         const server = http.createServer(app);
