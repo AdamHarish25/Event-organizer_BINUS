@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import errorHandler from "./middleware/errorHandler.js";
 import router from "./routes/index.js";
 import AppError from "./utils/AppError.js";
+import "./utils/scheduler.js";
 
 dotenv.config();
 
