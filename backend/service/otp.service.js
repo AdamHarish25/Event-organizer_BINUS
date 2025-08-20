@@ -32,107 +32,118 @@ const validateOTPFormat = (otp) => {
     }
 };
 
-const checkRateLimit = async (userId, OTPModel) => {
-    const windowStart = new Date(
-        Date.now() - OTP_CONFIG.RATE_LIMIT_WINDOW * 60 * 1000
-    );
-
-    const recentAttempts = await OTPModel.count({
-        where: {
-            userId,
-            createdAt: { [Op.gt]: windowStart },
-        },
-    });
-
-    if (recentAttempts >= OTP_CONFIG.MAX_REQUESTS_PER_WINDOW) {
-        logger.warn(`Rate limit exceeded for user ${userId}`);
-        throw new AppError(
-            `Terlalu banyak permintaan OTP. Coba lagi dalam ${OTP_CONFIG.RATE_LIMIT_WINDOW} menit`,
-            429,
-            "RATE_LIMITED"
-        );
-    }
-};
-
 export const validateOTP = async (user, otp, model) => {
     const { OTPModel } = model;
+    const isUserExist = await UserModel.findOne({ where: { email } });
+    if (!isUserExist) {
+        throw new AppError("Email tidak terdaftar", 404, "USER_NOT_FOUND");
+    }
 
     validateOTPFormat(otp);
-
-    await checkRateLimit(user.id, OTPModel);
 
     logger.info(`OTP validation attempt for user ${user.id}`);
 
     try {
-        await OTPModel.sequelize.transaction(async (t) => {
-            const otpRecord = await OTPModel.findOne({
-                where: {
-                    userId: user.id,
-                    verified: false,
-                    valid: true,
-                    expiresAt: { [Op.gt]: new Date() },
-                },
-                lock: t.LOCK.UPDATE,
-                transaction: t,
-            });
-
-            if (!otpRecord) {
-                logger.warn(`No valid OTP found for user ${user.id}`);
-                throw new AppError(
-                    "OTP sudah tidak berlaku atau telah kedaluwarsa",
-                    401,
-                    "EXPIRED_OTP"
-                );
-            }
-
-            // Cek jumlah percobaan
-            if (otpRecord.attempt >= OTP_CONFIG.MAX_ATTEMPTS) {
-                await otpRecord.update({ valid: false }, { transaction: t });
-                logger.warn(
-                    `Max attempts exceeded for OTP ${otpRecord.id}, user ${user.id}`
-                );
-                throw new AppError(
-                    "OTP sudah tidak berlaku karena terlalu banyak percobaan",
-                    401,
-                    "MAX_ATTEMPTS_EXCEEDED"
-                );
-            }
-
-            // Validasi OTP
-            const isValid = await bcrypt.compare(otp, otpRecord.code);
-            if (!isValid) {
-                const updated = await otpRecord.increment("attempt", {
-                    by: 1,
+        const validationResult = await OTPModel.sequelize.transaction(
+            async (t) => {
+                const otpRecord = await OTPModel.findOne({
+                    where: {
+                        userId: user.id,
+                        verified: false,
+                        valid: true,
+                        expiresAt: { [Op.gt]: new Date() },
+                    },
+                    lock: t.LOCK.UPDATE,
                     transaction: t,
                 });
-                const newAttempt = updated.get("attempt");
-                const remainingAttempts = OTP_CONFIG.MAX_ATTEMPTS - newAttempt;
 
-                logger.warn(
-                    `Invalid OTP attempt ${newAttempt}/${OTP_CONFIG.MAX_ATTEMPTS} for user ${user.id}`
+                if (!otpRecord) {
+                    return { success: false, code: "EXPIRED_OTP" };
+                }
+
+                const isValid = await bcrypt.compare(otp, otpRecord.code);
+
+                if (!isValid) {
+                    await otpRecord.increment("attempt", {
+                        by: 1,
+                        transaction: t,
+                    });
+                    await otpRecord.reload({ transaction: t });
+                    const newAttempt = otpRecord.get("attempt");
+
+                    logger.warn(
+                        `Invalid OTP attempt ${newAttempt}/${OTP_CONFIG.MAX_ATTEMPTS} for user ${user.id}`
+                    );
+
+                    if (newAttempt >= OTP_CONFIG.MAX_ATTEMPTS) {
+                        await otpRecord.update(
+                            { valid: false },
+                            { transaction: t }
+                        );
+                        logger.warn(
+                            `Max attempts exceeded for OTP ${otpRecord.id}. OTP invalidated.`
+                        );
+
+                        return {
+                            success: false,
+                            code: "MAX_ATTEMPTS_EXCEEDED",
+                        };
+                    }
+
+                    const remainingAttempts =
+                        OTP_CONFIG.MAX_ATTEMPTS - newAttempt;
+
+                    return {
+                        success: false,
+                        code: "INVALID_OTP",
+                        remainingAttempts,
+                    };
+                }
+
+                await otpRecord.update(
+                    {
+                        valid: false,
+                        verified: true,
+                        attempt: otpRecord.attempt + 1,
+                        verifiedAt: new Date(),
+                    },
+                    { transaction: t }
                 );
-                throw new AppError(
-                    remainingAttempts > 0
-                        ? `OTP tidak valid. Sisa percobaan: ${remainingAttempts}`
-                        : "OTP tidak valid. Tidak ada sisa percobaan.",
-                    401,
-                    "INVALID_OTP"
-                );
+
+                return { success: true };
             }
+        );
 
-            // OTP valid → update status
-            await otpRecord.update(
-                {
-                    valid: false,
-                    verified: true,
-                    attempt: otpRecord.attempt + 1,
-                    verifiedAt: new Date(),
-                },
-                { transaction: t }
-            );
+        if (!validationResult.success) {
+            switch (validationResult.code) {
+                case "EXPIRED_OTP":
+                    throw new AppError(
+                        "OTP sudah tidak berlaku atau telah kedaluwarsa",
+                        401,
+                        "EXPIRED_OTP"
+                    );
+                case "MAX_ATTEMPTS_EXCEEDED":
+                    throw new AppError(
+                        "OTP sudah tidak berlaku karena terlalu banyak percobaan",
+                        401,
+                        "MAX_ATTEMPTS_EXCEEDED"
+                    );
+                case "INVALID_OTP":
+                    throw new AppError(
+                        `OTP tidak valid. Sisa percobaan: ${validationResult.remainingAttempts}`,
+                        401,
+                        "INVALID_OTP"
+                    );
+                default:
+                    throw new AppError(
+                        "Terjadi kesalahan validasi OTP",
+                        500,
+                        "VALIDATION_ERROR"
+                    );
+            }
+        }
 
-            logger.info(`OTP successfully validated for user ${user.id}`);
-        });
+        logger.info(`OTP successfully validated for user ${user.id}`);
     } catch (error) {
         if (error instanceof AppError) throw error;
         logger.error(
@@ -151,8 +162,6 @@ export const saveOTPToDatabase = async (userId, otp, model, transaction) => {
     const { OTPModel } = model;
 
     try {
-        await checkRateLimit(userId, OTPModel);
-
         logger.info(`Saving new OTP for user ${userId}`);
 
         const otpHash = await bcrypt.hash(otp, OTP_CONFIG.BCRYPT_ROUNDS);
@@ -195,38 +204,5 @@ export const saveOTPToDatabase = async (userId, otp, model, transaction) => {
         if (error instanceof AppError) throw error;
         logger.error(`Error saving OTP for user ${userId}:`, error);
         throw new AppError("Gagal menyimpan OTP", 500, "SAVE_ERROR");
-    }
-};
-
-export const cleanupExpiredOTPs = async (model) => {
-    const { OTPModel } = model;
-
-    try {
-        const deletedCount = await OTPModel.destroy({
-            where: {
-                [Op.or]: [
-                    { expiresAt: { [Op.lt]: new Date() } },
-                    {
-                        verified: true,
-                        verifiedAt: {
-                            [Op.lt]: new Date(Date.now() - 24 * 60 * 60 * 1000),
-                        },
-                    },
-                ],
-            },
-        });
-
-        if (deletedCount > 0) {
-            logger.info(`Cleaned up ${deletedCount} expired/old OTP records`);
-        }
-
-        return deletedCount;
-    } catch (error) {
-        logger.error("Error cleaning up expired OTPs:", error);
-        throw new AppError(
-            "Gagal membersihkan OTP yang kedaluwarsa",
-            500,
-            "CLEANUP_ERROR"
-        );
     }
 };

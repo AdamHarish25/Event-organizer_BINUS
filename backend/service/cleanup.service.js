@@ -11,7 +11,11 @@ export const runCleanupTasks = async () => {
         // Hapus OTP
         const otpCount = await OTP.destroy({
             where: {
-                [Op.or]: [{ expiresAt: { [Op.lt]: now } }, { valid: false }],
+                [Op.or]: [
+                    { expiresAt: { [Op.lt]: now } },
+                    { valid: false },
+                    { verified: true },
+                ],
             },
         });
         if (otpCount > 0) logger.info(`Cleaned up ${otpCount} expired OTPs.`);

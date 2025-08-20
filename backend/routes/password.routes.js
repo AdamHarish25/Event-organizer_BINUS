@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 import {
     emailValidatorSchema,
@@ -17,11 +17,12 @@ import {
 dotenv.config({ path: "../.env" });
 const forgotPasswordLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 3,
+    max: 5,
     message: {
         success: false,
         error: "Terlalu banyak permintaan reset password, coba lagi dalam 15 menit",
     },
+    keyGenerator: (req, res) => req.body.email || ipKeyGenerator(req),
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -33,6 +34,9 @@ const otpVerificationLimiter = rateLimit({
         success: false,
         error: "Terlalu banyak percobaan verifikasi OTP, coba lagi dalam 5 menit",
     },
+    keyGenerator: (req) => req.body.email || ipKeyGenerator(req),
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 
 const resetPasswordLimiter = rateLimit({
@@ -42,6 +46,7 @@ const resetPasswordLimiter = rateLimit({
         success: false,
         error: "Terlalu banyak percobaan reset password, coba lagi dalam 10 menit",
     },
+    keyGenerator: (req) => req.body.resetToken || ipKeyGenerator(req),
 });
 
 const router = express.Router();
