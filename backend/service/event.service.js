@@ -1,5 +1,5 @@
 import { uuidv7 } from "uuidv7";
-import { startOfToday, isToday, isThisWeek } from "date-fns";
+import { startOfToday, endOfToday, endOfWeek } from "date-fns";
 import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
 import { generateEventAssetPaths } from "../utils/pathHelper.js";
@@ -11,13 +11,10 @@ import {
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
 
-export const getCategorizedEventsService = async (EventModel) => {
+export const getCategorizedEventsService = async ({ EventModel }) => {
     try {
-        const allUpcomingEvents = await EventModel.findAll({
-            where: {
-                date: { [Op.gte]: startOfToday() },
-                status: "approved",
-            },
+        const commonOptions = {
+            where: { status: "approved" },
             order: [
                 ["date", "ASC"],
                 ["startTime", "ASC"],
@@ -32,35 +29,85 @@ export const getCategorizedEventsService = async (EventModel) => {
                 "speaker",
                 "imageUrl",
             ],
-        });
-
-        const categorizedEvents = {
-            current: [],
-            thisWeek: [],
-            next: [],
         };
 
-        for (const event of allUpcomingEvents) {
-            const eventDate = new Date(event.date);
+        const today = new Date();
 
-            if (isToday(eventDate)) {
-                categorizedEvents.current.push(event);
-            } else if (isThisWeek(eventDate, { weekStartsOn: 1 })) {
-                categorizedEvents.thisWeek.push(event);
-            } else {
-                categorizedEvents.next.push(event);
-            }
-        }
+        const [currentEvents, thisWeekEvents, nextEvents] = await Promise.all([
+            // Current Events
+            EventModel.findAll({
+                ...commonOptions,
+                where: {
+                    ...commonOptions.where,
+                    date: { [Op.eq]: startOfToday() },
+                },
+            }),
 
-        const finalResult = {
-            current: categorizedEvents.current,
-            thisWeek: categorizedEvents.thisWeek,
-            next: categorizedEvents.next,
+            // This Week Events
+            EventModel.findAll({
+                ...commonOptions,
+                where: {
+                    ...commonOptions.where,
+                    date: {
+                        [Op.gt]: endOfToday(),
+                        [Op.lte]: endOfWeek(today, { weekStartsOn: 1 }),
+                    },
+                },
+            }),
+
+            // Next Event
+            EventModel.findAll({
+                ...commonOptions,
+                where: {
+                    ...commonOptions.where,
+                    date: {
+                        [Op.gt]: endOfWeek(today, { weekStartsOn: 1 }),
+                    },
+                },
+            }),
+        ]);
+
+        return {
+            current: currentEvents,
+            thisWeek: thisWeekEvents,
+            next: nextEvents,
         };
-
-        return finalResult;
     } catch (error) {
         console.error("Gagal mengambil data event terkategori:", error);
+        throw error;
+    }
+};
+
+export const getPaginatedEventsService = async (options) => {
+    const { userId, role, page, limit, EventModel } = options;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const offset = (pageNum - 1) * limitNum;
+
+    const whereClause = {};
+    if (role === "admin") {
+        whereClause.creatorId = userId;
+    }
+
+    try {
+        const { count, rows } = await EventModel.findAndCountAll({
+            where: whereClause,
+            limit: limitNum,
+            offset,
+            order: [["createdAt", "DESC"]],
+        });
+
+        return {
+            data: rows,
+            pagination: {
+                totalItems: count,
+                totalPages: Math.ceil(count / limitNum),
+                currentPage: pageNum,
+            },
+        };
+    } catch (error) {
+        console.error("Gagal mengambil data event: ", error);
         throw error;
     }
 };

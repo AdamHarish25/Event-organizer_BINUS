@@ -6,17 +6,47 @@ import {
     rejectEventService,
     approveEventService,
     getCategorizedEventsService,
+    getPaginatedEventsService,
 } from "../service/event.service.js";
 import db from "../model/index.js";
+import AppError from "../utils/AppError.js";
 
 export const eventViewer = async (req, res, next) => {
+    const eventDataFetchers = {
+        student: getCategorizedEventsService,
+        admin: getPaginatedEventsService,
+        super_admin: getPaginatedEventsService,
+    };
+
     try {
-        const event = await getCategorizedEventsService(db.Event);
-        res.json({
+        const { id: userId, role } = req.user;
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(
+            100,
+            Math.max(1, parseInt(req.query.limit) || 10)
+        );
+
+        const fetcher = eventDataFetchers[role];
+
+        if (!fetcher) {
+            throw new AppError(
+                "Kamu tidak memiliki hak untuk melihat sumberdaya ini.",
+                403,
+                "FORBIDDEN"
+            );
+        }
+
+        const eventData = await fetcher({
+            userId,
+            role,
+            page,
+            limit,
+            EventModel: db.Event,
+        });
+
+        res.status(200).json({
             status: "success",
-            message: "Event Viewer",
-            event: event,
-            user: req.user,
+            data: eventData,
         });
     } catch (error) {
         next(error);
