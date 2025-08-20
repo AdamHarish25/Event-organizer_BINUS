@@ -10,6 +10,7 @@ import {
 } from "./upload.service.js";
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
+import logger from "../utils/logger.js";
 
 export const getCategorizedEventsService = async ({ EventModel }) => {
     try {
@@ -73,7 +74,7 @@ export const getCategorizedEventsService = async ({ EventModel }) => {
             next: nextEvents,
         };
     } catch (error) {
-        console.error("Gagal mengambil data event terkategori:", error);
+        logger.error("Gagal mengambil data event terkategori:", error);
         throw error;
     }
 };
@@ -107,7 +108,7 @@ export const getPaginatedEventsService = async (options) => {
             },
         };
     } catch (error) {
-        console.error("Gagal mengambil data event: ", error);
+        logger.error("Gagal mengambil data event: ", error);
         throw error;
     }
 };
@@ -120,15 +121,15 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
 
     let uploadResult;
     try {
-        console.log(`Creating event: ${eventName} for user: ${userId}`);
-        console.log(`Uploading to folder: ${fullFolderPath}`);
+        logger.info(`Creating event: ${eventName} for user: ${userId}`);
+        logger.info(`Uploading to folder: ${fullFolderPath}`);
 
         uploadResult = await uploadPosterImage(file.buffer, {
             folder: fullFolderPath,
             public_id: fileName,
         });
 
-        console.log(`Upload successful: ${uploadResult.secure_url}`);
+        logger.info(`Upload successful: ${uploadResult.secure_url}`);
 
         let creatorName;
         const newEvent = await sequelize.transaction(async (t) => {
@@ -230,10 +231,10 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
             data: newEvent,
         });
 
-        console.log(`Upload successful: ${uploadResult.secure_url}`);
+        logger.info(`Upload successful: ${uploadResult.secure_url}`);
         return newEvent;
     } catch (error) {
-        console.error("Event creation failed:", {
+        logger.error("Event creation failed:", {
             userId,
             eventName,
             error: error.message,
@@ -241,7 +242,7 @@ export const saveNewEventAndNotify = async (userId, data, file, model) => {
         });
 
         if (uploadResult) {
-            console.log(
+            logger.info(
                 `Database save failed. Deleting uploaded image: ${uploadResult.public_id}`
             );
             await deleteSingleFile(uploadResult.public_id);
@@ -314,13 +315,13 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
                 const publicId = eventDataForCleanupAndNotify.imagePublicId;
 
                 if (!publicId || typeof publicId !== "string") {
-                    console.warn("Invalid publicId format:", publicId);
+                    logger.warn("Invalid publicId format:", publicId);
                     return true;
                 }
 
                 const parts = publicId.split("/");
                 if (parts.length < 2) {
-                    console.warn("PublicId format tidak sesuai:", publicId);
+                    logger.warn("PublicId format tidak sesuai:", publicId);
                     return true;
                 }
 
@@ -330,12 +331,12 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
 
                 if (folderPath) {
                     await deleteEventFolder(folderPath);
-                    console.log(
+                    logger.info(
                         `Cloud folder deleted successfully: ${folderPath}`
                     );
                 }
             } catch (cloudError) {
-                console.error("Cloud deletion failed:", {
+                logger.error("Cloud deletion failed:", {
                     eventId: eventDataForCleanupAndNotify.id,
                     publicId: eventDataForCleanupAndNotify.imagePublicId,
                     error: cloudError.message,
@@ -355,7 +356,7 @@ export const handleDeleteEvent = async (adminId, eventId, model) => {
 
         return true;
     } catch (dbError) {
-        console.error("Gagal menghapus data dari database:", dbError.message);
+        logger.error("Gagal menghapus data dari database:", dbError.message);
         throw dbError;
     }
 };
@@ -407,7 +408,7 @@ export const sendFeedback = async (eventId, superAdminId, feedback, model) => {
 
         return feedbackResult;
     } catch (error) {
-        console.error("Gagal mengirim feedback:", error.message);
+        logger.error("Gagal mengirim feedback:", error.message);
         throw error;
     }
 };
@@ -426,7 +427,7 @@ export const editEventService = async (
         const { fullFolderPath, fileName } = generateEventAssetPaths(eventId);
 
         if (image) {
-            console.log(`Uploading to folder: ${fullFolderPath}`);
+            logger.info(`Uploading to folder: ${fullFolderPath}`);
             uploadResult = await uploadPosterImage(image.buffer, {
                 folder: fullFolderPath,
                 public_id: fileName,
@@ -469,7 +470,7 @@ export const editEventService = async (
                 transaction: t,
             });
 
-            console.log("Data yang mau diupdate adalah ", dataToUpdate);
+            logger.info("Data yang mau diupdate adalah ", dataToUpdate);
 
             const updatedPayloadData = { ...event.dataValues, ...dataToUpdate };
             const notificationForSuperAdmin = superAdmins.map((superAdmin) => ({
@@ -531,13 +532,13 @@ export const editEventService = async (
         return updatedEvent;
     } catch (error) {
         if (uploadResult) {
-            console.log(
+            logger.info(
                 `Database transaction failed. Deleting uploaded image: ${uploadResult.public_id}`
             );
             await deleteSingleFile(uploadResult.public_id);
         }
 
-        console.error("Gagal mengedit event:", error.message);
+        logger.error("Gagal mengedit event:", error.message);
         throw error;
     }
 };
@@ -601,7 +602,7 @@ export const rejectEventService = async (
 
         return rejectEventResult;
     } catch (error) {
-        console.error("Gagal reject event.", error);
+        logger.error("Gagal reject event.", error);
         throw error;
     }
 };
@@ -666,7 +667,7 @@ export const approveEventService = async (eventId, superAdminId, model) => {
 
         return approveEventResult;
     } catch (error) {
-        console.error("Gagal approve event.", error);
+        logger.error("Gagal approve event.", error);
         throw error;
     }
 };

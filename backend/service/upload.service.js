@@ -1,4 +1,5 @@
 import cloudinary from "../config/cloudinary.js";
+import logger from "../utils/logger.js";
 
 export const uploadPosterImage = (buffer, options) => {
     return new Promise((resolve, reject) => {
@@ -26,7 +27,7 @@ export const deleteEventFolder = async (folderPath) => {
         await cloudinary.api.delete_resources_by_prefix(folderPath);
         await cloudinary.api.delete_folder(folderPath);
     } catch (error) {
-        console.error("Error deleting image from Cloudinary:", error);
+        logger.error("Error deleting image from Cloudinary:", error);
         throw error;
     }
 };
@@ -34,12 +35,12 @@ export const deleteEventFolder = async (folderPath) => {
 export const deleteSingleFile = async (imagePublicId) => {
     try {
         const result = await cloudinary.uploader.destroy(imagePublicId);
-        console.log(
+        logger.info(
             `File dengan public_id: ${imagePublicId} berhasil dihapus.`
         );
         return result;
     } catch (error) {
-        console.error("Error deleting image from Cloudinary:", error);
+        logger.error("Error deleting image from Cloudinary:", error);
         throw error;
     }
 };

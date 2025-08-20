@@ -8,6 +8,7 @@ import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
 import db from "../model/index.js";
+import logger from "../utils/logger.js";
 
 dotenv.config({ path: "../.env" });
 
@@ -161,7 +162,7 @@ export const requestPasswordReset = async (email, model) => {
             await sendOTPEmail(mailOptions, email);
         });
     } catch (error) {
-        console.error(
+        logger.error(
             `[TRANSACTION_FAILED] Gagal memproses OTP untuk ${email}.`,
             {
                 errorMessage: error.message,
@@ -211,7 +212,7 @@ export const resetPasswordHandler = async (
         const isMatch = await bcrypt.compare(resetToken, dataRow.token);
 
         if (isMatch) {
-            console.log("Token cocok! Data ditemukan.");
+            logger.info("Token cocok! Data ditemukan.");
             matchedData = dataRow;
             break;
         }
