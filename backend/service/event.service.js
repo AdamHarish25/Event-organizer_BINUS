@@ -189,10 +189,14 @@ export const saveNewEventAndNotify = async (
         logger.info("Attempting to upload poster image to cloud storage", {
             context: { folder: fullFolderPath, fileName },
         });
-        uploadResult = await uploadPosterImage(file.buffer, {
-            folder: fullFolderPath,
-            public_id: fileName,
-        });
+        uploadResult = await uploadPosterImage(
+            file.buffer,
+            {
+                folder: fullFolderPath,
+                public_id: fileName,
+            },
+            logger
+        );
         logger.info("Image uploaded successfully", {
             context: {
                 url: uploadResult.secure_url,
@@ -329,19 +333,21 @@ export const saveNewEventAndNotify = async (
                 }
             );
 
-            deleteSingleFile(uploadResult.public_id).catch((deleteErr) => {
-                logger.error(
-                    "Failed to delete orphaned file from cloud storage during rollback",
-                    {
-                        context: { publicId: uploadResult.public_id },
+            deleteSingleFile(uploadResult.public_id, logger).catch(
+                (deleteErr) => {
+                    logger.error(
+                        "Failed to delete orphaned file from cloud storage during rollback",
+                        {
+                            context: { publicId: uploadResult.public_id },
 
-                        error: {
-                            message: deleteErr.message,
-                            stack: deleteErr.stack,
-                        },
-                    }
-                );
-            });
+                            error: {
+                                message: deleteErr.message,
+                                stack: deleteErr.stack,
+                            },
+                        }
+                    );
+                }
+            );
         }
 
         if (!(error instanceof AppError)) {
@@ -454,7 +460,7 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
                 );
 
                 if (folderPath) {
-                    await deleteEventFolder(folderPath);
+                    await deleteEventFolder(folderPath, logger);
                     logger.info(
                         "Cloud folder and associated assets deleted successfully",
                         { context: { folderPath } }
