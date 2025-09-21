@@ -1,10 +1,17 @@
 import winston from "winston";
+import { SPLAT } from "triple-beam";
 
 const { combine, timestamp, printf, colorize, json } = winston.format;
 
-const consoleFormat = printf(({ level, message, timestamp }) => {
-    return `${timestamp} ${level}: ${message}`;
-});
+const consoleFormat = printf(
+    ({ level, message, timestamp, [SPLAT]: metadata }) => {
+        let log = `${timestamp} ${level}: ${message}`;
+        if (metadata && metadata.length > 0) {
+            log += ` ${JSON.stringify(metadata, null, 2)}`;
+        }
+        return log;
+    }
+);
 
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || "info",
@@ -14,7 +21,6 @@ const logger = winston.createLogger({
             filename: "logs/error.log",
             level: "error",
         }),
-
         new winston.transports.File({ filename: "logs/combined.log" }),
     ],
 });

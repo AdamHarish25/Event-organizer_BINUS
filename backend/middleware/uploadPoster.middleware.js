@@ -4,7 +4,6 @@ const fileFilter = (req, file, cb) => {
     cb(null, true);
 };
 
-//Konfigurasi Multer untuk poster event
 const uploadPoster = multer({
     storage: multer.memoryStorage(),
     fileFilter: fileFilter,

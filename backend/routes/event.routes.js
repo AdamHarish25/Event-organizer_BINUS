@@ -364,7 +364,7 @@ router.post(
     "/:eventId/reject",
     accessTokenValidator(ACCESS_JWT_SECRET),
     roleValidator("super_admin"),
-    schemaValidator({ params: eventParamsSchema }), // Note: Body tidak divalidasi di sini, tapi controller mengharapkannya
+    schemaValidator({ params: eventParamsSchema, body: feedbackSchema }),
     rejectEvent
 );
 

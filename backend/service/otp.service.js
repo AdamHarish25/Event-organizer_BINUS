@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
-import logger from "../utils/logger.js";
 
 export const OTP_CONFIG = {
     MAX_ATTEMPTS: 3,
@@ -32,91 +31,82 @@ const validateOTPFormat = (otp) => {
     }
 };
 
-export const validateOTP = async (user, otp, model) => {
+export const validateOTP = async (user, otp, model, logger) => {
     const { OTPModel } = model;
-    const isUserExist = await UserModel.findOne({ where: { email } });
-    if (!isUserExist) {
-        throw new AppError("Email tidak terdaftar", 404, "USER_NOT_FOUND");
-    }
-
-    validateOTPFormat(otp);
-
-    logger.info(`OTP validation attempt for user ${user.id}`);
-
     try {
-        const validationResult = await OTPModel.sequelize.transaction(
-            async (t) => {
-                const otpRecord = await OTPModel.findOne({
-                    where: {
-                        userId: user.id,
-                        verified: false,
-                        valid: true,
-                        expiresAt: { [Op.gt]: new Date() },
+        logger.info("OTP validation process started in service");
+        validateOTPFormat(otp);
+
+        const validationResult = await db.sequelize.transaction(async (t) => {
+            const otpRecord = await OTPModel.findOne({
+                where: {
+                    userId: user.id,
+                    verified: false,
+                    valid: true,
+                    expiresAt: { [Op.gt]: new Date() },
+                },
+                lock: t.LOCK.UPDATE,
+                transaction: t,
+            });
+
+            if (!otpRecord) {
+                logger.warn(
+                    "OTP validation failed: No valid/unexpired OTP record found for user"
+                );
+                return { success: false, code: "EXPIRED_OR_INVALID_OTP" };
+            }
+            logger.info("Valid OTP record found, proceeding to compare hash");
+
+            const isValid = await bcrypt.compare(otp, otpRecord.code);
+
+            if (!isValid) {
+                await otpRecord.increment("attempt", { by: 1, transaction: t });
+                const newAttempt = otpRecord.attempt + 1;
+
+                logger.warn("Invalid OTP submitted", {
+                    context: {
+                        attemptCount: newAttempt,
+                        maxAttempts: OTP_CONFIG.MAX_ATTEMPTS,
                     },
-                    lock: t.LOCK.UPDATE,
-                    transaction: t,
                 });
 
-                if (!otpRecord) {
-                    return { success: false, code: "EXPIRED_OTP" };
-                }
-
-                const isValid = await bcrypt.compare(otp, otpRecord.code);
-
-                if (!isValid) {
-                    await otpRecord.increment("attempt", {
-                        by: 1,
-                        transaction: t,
-                    });
-                    await otpRecord.reload({ transaction: t });
-                    const newAttempt = otpRecord.get("attempt");
-
-                    logger.warn(
-                        `Invalid OTP attempt ${newAttempt}/${OTP_CONFIG.MAX_ATTEMPTS} for user ${user.id}`
+                if (newAttempt >= OTP_CONFIG.MAX_ATTEMPTS) {
+                    await otpRecord.update(
+                        { valid: false },
+                        { transaction: t }
                     );
-
-                    if (newAttempt >= OTP_CONFIG.MAX_ATTEMPTS) {
-                        await otpRecord.update(
-                            { valid: false },
-                            { transaction: t }
-                        );
-                        logger.warn(
-                            `Max attempts exceeded for OTP ${otpRecord.id}. OTP invalidated.`
-                        );
-
-                        return {
-                            success: false,
-                            code: "MAX_ATTEMPTS_EXCEEDED",
-                        };
-                    }
-
-                    const remainingAttempts =
-                        OTP_CONFIG.MAX_ATTEMPTS - newAttempt;
-
-                    return {
-                        success: false,
-                        code: "INVALID_OTP",
-                        remainingAttempts,
-                    };
+                    logger.warn(
+                        "Max OTP attempts exceeded, token has been invalidated",
+                        {
+                            context: { otpId: otpRecord.id },
+                        }
+                    );
+                    return { success: false, code: "MAX_ATTEMPTS_EXCEEDED" };
                 }
 
-                await otpRecord.update(
-                    {
-                        valid: false,
-                        verified: true,
-                        attempt: otpRecord.attempt + 1,
-                        verifiedAt: new Date(),
-                    },
-                    { transaction: t }
-                );
-
-                return { success: true };
+                return {
+                    success: false,
+                    code: "INVALID_OTP",
+                    remainingAttempts: OTP_CONFIG.MAX_ATTEMPTS - newAttempt,
+                };
             }
-        );
+
+            await otpRecord.update(
+                {
+                    valid: false,
+                    verified: true,
+                    attempt: otpRecord.attempt + 1,
+                    verifiedAt: new Date(),
+                },
+                { transaction: t }
+            );
+
+            return { success: true };
+        });
 
         if (!validationResult.success) {
             switch (validationResult.code) {
-                case "EXPIRED_OTP":
+                case "EXPIRED_OR_INVALID_OTP":
                     throw new AppError(
                         "OTP sudah tidak berlaku atau telah kedaluwarsa",
                         401,
@@ -143,13 +133,20 @@ export const validateOTP = async (user, otp, model) => {
             }
         }
 
-        logger.info(`OTP successfully validated for user ${user.id}`);
+        logger.info("OTP successfully validated and marked as verified");
     } catch (error) {
-        if (error instanceof AppError) throw error;
-        logger.error(
-            `Unexpected error in OTP validation for user ${user.id}:`,
-            error
-        );
+        if (error instanceof AppError) {
+            throw error;
+        }
+
+        logger.error("An unexpected error occurred during OTP validation", {
+            error: {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+            },
+        });
+
         throw new AppError(
             "Terjadi kesalahan saat validasi OTP",
             500,
@@ -158,29 +155,41 @@ export const validateOTP = async (user, otp, model) => {
     }
 };
 
-export const saveOTPToDatabase = async (userId, otp, model, transaction) => {
+export const saveOTPToDatabase = async (
+    userId,
+    otp,
+    model,
+    transaction,
+    logger
+) => {
     const { OTPModel } = model;
 
     try {
-        logger.info(`Saving new OTP for user ${userId}`);
+        logger.info("Saving new OTP to database process started");
 
         const otpHash = await bcrypt.hash(otp, OTP_CONFIG.BCRYPT_ROUNDS);
 
-        await OTPModel.update(
+        const [updatedRows] = await OTPModel.update(
             { valid: false, invalidatedAt: new Date() },
             {
                 where: {
                     userId,
                     verified: false,
                     valid: true,
-                    attempt: { [Op.lt]: OTP_CONFIG.MAX_ATTEMPTS },
                     expiresAt: { [Op.gt]: new Date() },
+                    attempt: { [Op.lt]: OTP_CONFIG.MAX_ATTEMPTS },
                 },
                 transaction,
+                returning: false,
             }
         );
 
-        // Buat OTP baru
+        if (updatedRows > 0) {
+            logger.info(
+                `Invalidated ${updatedRows} previous valid OTP(s) for the user`
+            );
+        }
+
         const expiresAt = new Date(
             Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
         );
@@ -196,13 +205,34 @@ export const saveOTPToDatabase = async (userId, otp, model, transaction) => {
             { transaction }
         );
 
-        logger.info(
-            `New OTP created with ID ${newOTP.id} for user ${userId}, expires at ${expiresAt}`
-        );
+        logger.info("New OTP record created successfully in database", {
+            context: {
+                otpId: newOTP.id,
+                expiresAt: newOTP.expiresAt,
+            },
+        });
+
         return newOTP;
     } catch (error) {
-        if (error instanceof AppError) throw error;
-        logger.error(`Error saving OTP for user ${userId}:`, error);
-        throw new AppError("Gagal menyimpan OTP", 500, "SAVE_ERROR");
+        if (error instanceof AppError) {
+            throw error;
+        }
+
+        logger.error(
+            "An unexpected error occurred while saving OTP to database",
+            {
+                error: {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                },
+            }
+        );
+
+        throw new AppError(
+            "Gagal menyimpan OTP karena masalah internal.",
+            500,
+            "SAVE_OTP_ERROR"
+        );
     }
 };

@@ -1,8 +1,13 @@
+import { uuidv7 } from "uuidv7";
 import AppError from "../utils/AppError.js";
+import logger from "../utils/logger.js";
 
 export const schemaValidator = (schemas) => {
     return async (req, res, next) => {
         const errors = {};
+        const correlationId =
+            req.correlationId || req.headers["x-correlation-id"] || uuidv7();
+        req.correlationId = correlationId;
 
         try {
             if (schemas.body) {
@@ -40,12 +45,26 @@ export const schemaValidator = (schemas) => {
                 error.details.forEach(({ path: [field], message }) => {
                     errors[field] = errors[field] || message;
                 });
+
+                logger.warn("Input validation failed", {
+                    correlationId: correlationId,
+                    source: "ValidationMiddleware",
+                    context: {
+                        request: {
+                            ip: req.ip,
+                            method: req.method,
+                            url: req.originalUrl,
+                            userAgent: req.headers["user-agent"],
+                        },
+                        validationErrors: errors,
+                    },
+                });
             }
 
             next(
                 new AppError(
                     "Invalid request data",
-                    401,
+                    400,
                     "VALIDATION_ERROR",
                     errors
                 )

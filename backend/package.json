@@ -5,7 +5,7 @@
     "main": "server.js",
     "type": "module",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "cross-env NODE_ENV=test jest --testTimeout=10000 --detectOpenHandles",
         "dev": "nodemon index.js"
     },
     "repository": {
@@ -41,5 +41,10 @@
         "ua-parser-js": "^2.0.4",
         "uuidv7": "^1.0.2",
         "winston": "^3.17.0"
+    },
+    "devDependencies": {
+        "cross-env": "^10.0.0",
+        "jest": "^30.0.5",
+        "supertest": "^7.1.4"
     }
 }

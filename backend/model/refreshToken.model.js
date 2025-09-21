@@ -43,9 +43,6 @@ const refreshTokenModel = (sequelize, DataTypes) => {
             timestamps: false,
             indexes: [
                 {
-                    fields: ["ownerId"],
-                },
-                {
                     fields: ["expiresAt"],
                 },
             ],

@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
+import { uuidv7 } from "uuidv7";
 import AppError from "../utils/AppError.js";
+import logger from "../utils/logger.js";
 
 export function parseAndVerifyToken({ token, type, secretKey }) {
     if (!token) {
@@ -27,6 +29,10 @@ export function parseAndVerifyToken({ token, type, secretKey }) {
 
 export const accessTokenValidator = (secretKey) => {
     return (req, res, next) => {
+        const correlationId =
+            req.correlationId || req.headers["x-correlation-id"] || uuidv7();
+        req.correlationId = correlationId;
+
         try {
             const authHeader = req.headers.authorization;
             const accessToken = authHeader ? authHeader.split(" ")[1] : null;
@@ -40,14 +46,34 @@ export const accessTokenValidator = (secretKey) => {
             req.user = decoded;
             next();
         } catch (error) {
+            logger.warn("Access token validation failed", {
+                correlationId,
+                source: "AccessTokenValidator",
+                context: {
+                    request: {
+                        ip: req.ip,
+                        method: req.method,
+                        url: req.originalUrl,
+                    },
+                    error: {
+                        message: error.message,
+                        errorCode: error.errorCode,
+                        originalError: error.errorField?.originalError,
+                    },
+                },
+            });
             next(error);
         }
     };
 };
 
 export const refreshTokenValidator = (secretKey) => {
-    try {
-        return (req, res, next) => {
+    return (req, res, next) => {
+        const correlationId =
+            req.correlationId || req.headers["x-correlation-id"] || uuidv7();
+        req.correlationId = correlationId;
+
+        try {
             const refreshToken = req.cookies.refreshToken;
             const decoded = parseAndVerifyToken({
                 token: refreshToken,
@@ -56,8 +82,24 @@ export const refreshTokenValidator = (secretKey) => {
             });
             req.user = decoded;
             next();
-        };
-    } catch (error) {
-        next(error);
-    }
+        } catch (error) {
+            logger.warn("Refresh token validation failed", {
+                correlationId,
+                source: "RefreshTokenValidator",
+                context: {
+                    request: {
+                        ip: req.ip,
+                        method: req.method,
+                        url: req.originalUrl,
+                    },
+                    error: {
+                        message: error.message,
+                        errorCode: error.errorCode,
+                        originalError: error.errorField?.originalError,
+                    },
+                },
+            });
+            next(error);
+        }
+    };
 };

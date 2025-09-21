@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { uuidv7 } from "uuidv7";
 
 import { accessTokenValidator } from "../middleware/tokenValidator.middleware.js";
 import {
@@ -14,15 +15,46 @@ import { notificationParamsSchema } from "../validator/notification.validator.js
 dotenv.config({ path: "../.env" });
 const { ACCESS_JWT_SECRET } = process.env;
 
-const notificationLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 1 minute
+const ONE_MINUTE = 60 * 1000;
+
+export const notificationLimiter = rateLimit({
+    windowMs: ONE_MINUTE,
     max: 30,
     message: {
-        success: false,
-        error: "Terlalu banyak request notifikasi, coba lagi dalam 1 menit",
+        status: "fail",
+        message: "Terlalu banyak request notifikasi, coba lagi dalam 1 menit.",
+        errorCode: "TOO_MANY_REQUESTS",
     },
     standardHeaders: true,
     legacyHeaders: false,
+
+    keyGenerator: (req, res) => req.user.id || ipKeyGenerator(req),
+
+    handler: (req, res, next, options) => {
+        const correlationId =
+            req.correlationId || req.headers["x-correlation-id"] || uuidv7();
+        req.correlationId = correlationId;
+
+        logger.warn("Rate limit exceeded for notifications", {
+            correlationId,
+            source: "NotificationLimiter",
+            context: {
+                request: {
+                    ip: req.ip,
+                    method: req.method,
+                    url: req.originalUrl,
+                },
+                limit: {
+                    limit: options.limit,
+                    windowMs: options.windowMs,
+                },
+                userId: req.user?.id || "unauthenticated",
+            },
+        });
+
+        res.status(options.statusCode).json(options.message);
+    },
+    skipSuccessfulRequests: true,
 });
 
 const router = express.Router();

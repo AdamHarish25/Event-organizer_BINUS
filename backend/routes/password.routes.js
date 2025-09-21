@@ -13,10 +13,46 @@ import {
     verifyOTP,
     resetPassword,
 } from "../controller/password.controller.js";
+import logger from "../utils/logger.js";
 
 dotenv.config({ path: "../.env" });
-const forgotPasswordLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+
+const ONE_MINUTES = 60 * 1000;
+const FIVE_MINUTES = 5 * ONE_MINUTES;
+const TEN_MINUTES = 10 * ONE_MINUTES;
+const FIVETEEN_MINUTES = 15 * ONE_MINUTES;
+
+const rateLimitHandler = (sourceName) => {
+    return (req, res, next, options) => {
+        const correlationId =
+            req.correlationId || req.headers["x-correlation-id"] || uuidv7();
+        req.correlationId = correlationId;
+
+        const specificKey = req.body.email || req.body.resetToken || "N/A";
+
+        logger.warn(`Rate limit exceeded: ${sourceName}`, {
+            correlationId,
+            source: sourceName,
+            context: {
+                request: {
+                    ip: req.ip,
+                    method: req.method,
+                    url: req.originalUrl,
+                },
+                limit: {
+                    limit: options.limit,
+                    windowMs: options.windowMs,
+                },
+                keyUsed: specificKey,
+            },
+        });
+
+        res.status(options.statusCode).json(options.message);
+    };
+};
+
+export const forgotPasswordLimiter = rateLimit({
+    windowMs: FIVETEEN_MINUTES,
     max: 5,
     message: {
         success: false,
@@ -25,10 +61,12 @@ const forgotPasswordLimiter = rateLimit({
     keyGenerator: (req, res) => req.body.email || ipKeyGenerator(req),
     standardHeaders: true,
     legacyHeaders: false,
+    handler: rateLimitHandler("ForgotPasswordLimiter"),
+    skipSuccessfulRequests: true,
 });
 
 const otpVerificationLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 minutes
+    windowMs: FIVE_MINUTES,
     max: 5,
     message: {
         success: false,
@@ -37,16 +75,20 @@ const otpVerificationLimiter = rateLimit({
     keyGenerator: (req) => req.body.email || ipKeyGenerator(req),
     standardHeaders: true,
     legacyHeaders: false,
+    handler: rateLimitHandler("OtpVerificationLimiter"),
+    skipSuccessfulRequests: true,
 });
 
 const resetPasswordLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
+    windowMs: TEN_MINUTES,
     max: 3,
     message: {
         success: false,
         error: "Terlalu banyak percobaan reset password, coba lagi dalam 10 menit",
     },
     keyGenerator: (req) => req.body.resetToken || ipKeyGenerator(req),
+    handler: rateLimitHandler("ResetPasswordLimiter"),
+    skipSuccessfulRequests: true,
 });
 
 const router = express.Router();

@@ -23,11 +23,36 @@ export const checkEmailConnection = async () => {
     }
 };
 
-export const sendOTPEmail = async (mailOptions, email) => {
-    console.log(`Mengirim email OTP ke ${email}...`);
+export const sendOTPEmail = async (mailOptions, email, logger) => {
+    try {
+        logger.info("Attempting to send OTP email via external service", {
+            context: {
+                recipientEmail: email,
+            },
+        });
 
-    const info = await transporter.sendMail(mailOptions);
+        const info = await transporter.sendMail(mailOptions);
 
-    console.log("Email berhasil terkirim!");
-    console.log("Message ID:", info.messageId);
+        logger.info("OTP email sent successfully", {
+            context: {
+                recipientEmail: email,
+                messageId: info.messageId,
+                response: info.response,
+            },
+        });
+    } catch (error) {
+        logger.error("Failed to send OTP email", {
+            context: {
+                recipientEmail: email,
+            },
+            error: {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+                code: error.code,
+            },
+        });
+
+        throw error;
+    }
 };
