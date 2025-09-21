@@ -40,7 +40,10 @@ const resetTokenSchema = Joi.string().min(64).max(64).required().messages({
 
 export const loginValidatorSchema = Joi.object({
     email: emailSchema,
-    password: passwordSchema,
+    password: Joi.string().required().messages({
+        "string.empty": "Password tidak boleh kosong.",
+        "any.required": "Password wajib diisi.",
+    }),
 });
 
 export const emailValidatorSchema = Joi.object({

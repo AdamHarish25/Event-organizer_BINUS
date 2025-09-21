@@ -5,11 +5,11 @@ import { resolve } from "path";
 dotenv.config({ path: resolve(process.cwd(), ".env") });
 
 const baseEventSchema = Joi.object({
-    eventName: Joi.string().trim().min(3).max(70).messages({
+    eventName: Joi.string().trim().min(3).max(150).messages({
         "string.base": "Nama event harus berupa teks.",
         "string.empty": "Nama event tidak boleh kosong.",
         "string.min": "Nama event minimal 3 karakter.",
-        "string.max": "Nama event maksimal 70 karakter.",
+        "string.max": "Nama event maksimal 150 karakter.",
     }),
 
     startTime: Joi.string()
