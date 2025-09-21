@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
+import { sequelize } from "../config/dbconfig.js";
 
 export const OTP_CONFIG = {
     MAX_ATTEMPTS: 3,
@@ -37,7 +38,7 @@ export const validateOTP = async (user, otp, model, logger) => {
         logger.info("OTP validation process started in service");
         validateOTPFormat(otp);
 
-        const validationResult = await db.sequelize.transaction(async (t) => {
+        const validationResult = await sequelize.transaction(async (t) => {
             const otpRecord = await OTPModel.findOne({
                 where: {
                     userId: user.id,

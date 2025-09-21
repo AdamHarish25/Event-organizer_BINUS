@@ -9,6 +9,7 @@ import {
 import { validateOTP } from "../service/otp.service.js";
 import { saveResetTokenToDatabase } from "../service/token.service.js";
 import AppError from "../utils/AppError.js";
+import logger from "../utils/logger.js";
 
 export const forgotPassword = async (req, res, next) => {
     const correlationId =
