@@ -1,3 +1,4 @@
+import bcrypt from "bcrypt";
 import AppError from "../utils/AppError.js";
 import db from "../model/index.js";
 import logger from "../utils/logger.js";
@@ -10,9 +11,19 @@ export const authenticateBlacklistedToken = async (req, res, next) => {
     const token = authHeader ? authHeader.split(" ")[1] : null;
 
     try {
-        const isBlacklisted = await BlacklistedTokenModel.findOne({
-            where: { userId: user.id, token },
+        const allBlacklistedToken = await BlacklistedTokenModel.findAll({
+            where: { userId: user.id },
         });
+
+        let isBlacklisted = false;
+
+        for (const record of allBlacklistedToken) {
+            const isMatch = await bcrypt.compare(token, record.token);
+            if (isMatch) {
+                isBlacklisted = true;
+                break;
+            }
+        }
 
         if (isBlacklisted) {
             logger.warn("Blacklisted token usage detected and blocked", {

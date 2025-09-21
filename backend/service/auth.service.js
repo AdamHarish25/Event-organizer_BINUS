@@ -8,7 +8,9 @@ import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
 import db from "../model/index.js";
-import logger from "../utils/logger.js";
+
+const BCRPT_SALT_ROUDS = 10;
+const FIVETEEN_MINUTES = 15 * 60 * 1000;
 
 dotenv.config({ path: "../.env" });
 
@@ -153,11 +155,16 @@ export const handleUserLogout = async (token, model, userId, logoutLogger) => {
         );
         logoutLogger.info("Refresh token successfully revoked in database");
 
+        const hashedToken = await bcrypt.hash(
+            accessTokenFromUser,
+            BCRPT_SALT_ROUDS
+        );
+
         await BlacklistedTokenModel.create({
-            token: accessTokenFromUser,
+            token: hashedToken,
             userId,
             reason: "logout",
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+            expiresAt: new Date(Date.now() + FIVETEEN_MINUTES),
         });
         logoutLogger.info("Access token successfully added to blacklist");
     } catch (error) {
@@ -404,7 +411,10 @@ export const resetPasswordHandler = async (
             "Reset token matched successfully. Proceeding to update password."
         );
 
-        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        const hashedNewPassword = await bcrypt.hash(
+            newPassword,
+            BCRPT_SALT_ROUDS
+        );
 
         await db.sequelize.transaction(async (t) => {
             await UserModel.update(

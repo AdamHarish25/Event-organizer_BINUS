@@ -147,6 +147,7 @@ router.get(
 router.post(
     "/",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     roleValidator("admin"),
     handleMulter(uploadPoster.single("image")),
     schemaValidator({ body: createEventSchema }),
@@ -216,6 +217,7 @@ router.post(
 router.patch(
     "/:eventId",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     roleValidator("admin"),
     handleMulter(uploadPoster.single("image")),
     schemaValidator({
@@ -263,6 +265,7 @@ router.patch(
 router.delete(
     "/:eventId",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     roleValidator("admin"),
     schemaValidator({ params: eventParamsSchema }),
     deleteEvent
@@ -307,6 +310,7 @@ router.delete(
 router.post(
     "/:eventId/approve",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     roleValidator("super_admin"),
     schemaValidator({ params: eventParamsSchema }),
     approveEvent
@@ -363,6 +367,7 @@ router.post(
 router.post(
     "/:eventId/reject",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     roleValidator("super_admin"),
     schemaValidator({ params: eventParamsSchema, body: feedbackSchema }),
     rejectEvent
@@ -412,6 +417,7 @@ router.post(
 router.post(
     "/:eventId/feedback",
     accessTokenValidator(ACCESS_JWT_SECRET),
+    authenticateBlacklistedToken,
     roleValidator("super_admin"),
     schemaValidator({
         params: eventParamsSchema,
