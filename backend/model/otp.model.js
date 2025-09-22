@@ -39,6 +39,14 @@ const OTPModel = (sequelize, DataTypes) => {
                 type: DataTypes.INTEGER,
                 allowNull: false,
             },
+            verifiedAt: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            invalidatedAt: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
         },
         {
             tableName: "otps",

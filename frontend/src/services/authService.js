@@ -12,9 +12,8 @@ const login = async (email, password) => {
       password,
     });
 
-    // Backend sekarang mengirim lebih banyak data user
+    // Backend returns: { message, userId, role, accessToken }
     if (response.data.accessToken) {
-      // Simpan seluruh data yang diterima dari backend
       localStorage.setItem('user', JSON.stringify(response.data));
     }
 

@@ -2,26 +2,31 @@ import React, { useState } from 'react';
 import { FaEnvelope } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../../services/authService';
+import { validateEmail } from '../../services/validation';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailErrors, setEmailErrors] = useState([]);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
-    setLoading(true);
     
-    // Basic email validation
-    if (!email || !email.includes('@')) {
-      setError('Masukkan alamat email yang valid.');
-      setLoading(false);
+    // Validate email using backend rules
+    const emailValidationErrors = validateEmail(email);
+    setEmailErrors(emailValidationErrors);
+    
+    if (emailValidationErrors.length > 0) {
+      setError('Please fix the email field.');
       return;
     }
+    
+    setLoading(true);
     
     try {
       console.log('Attempting to send OTP for email:', email);
@@ -49,8 +54,9 @@ const ForgotPassword = () => {
           <div className="flex items-center bg-white rounded-md overflow-hidden">
             <div className="p-3 text-[#3F88BC]"><FaEnvelope /></div>
             <div className="w-px bg-[#3F88BC] h-10" />
-            <input type="email" className="w-full p-3 text-gray-700 outline-none" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input type="email" className={`w-full p-3 text-gray-700 outline-none ${emailErrors.length ? 'bg-red-50' : ''}`} placeholder="Email (@binus.ac.id or @gmail.com)" value={email} onChange={(e) => { setEmail(e.target.value); setEmailErrors(validateEmail(e.target.value)); }} />
           </div>
+          {emailErrors.map((err, idx) => <p key={idx} className="text-red-200 text-xs">{err}</p>)}
           {error && <p className="text-red-200 text-sm">{error}</p>}
           {message && <p className="text-green-200 text-sm">{message}</p>}
           <div className="flex justify-between items-center">

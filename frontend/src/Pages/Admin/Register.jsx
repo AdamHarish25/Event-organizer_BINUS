@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { FaUser, FaLock, FaEnvelope } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import authService from '../../services/authService';
+import { validateEmail, validatePassword, validateName } from '../../services/validation';
 
 import logo from '../../assets/logo.png';
 
@@ -23,23 +24,64 @@ const RegisterAdminPage = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Fungsi untuk menangani perubahan pada setiap input
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prevState => ({
       ...prevState,
       [name]: value
     }));
+    
+    // Real-time validation
+    let errors = [];
+    switch(name) {
+      case 'firstName':
+        errors = validateName(value, 'First name');
+        break;
+      case 'lastName':
+        errors = validateName(value, 'Last name');
+        break;
+      case 'email':
+        errors = validateEmail(value);
+        break;
+      case 'password':
+        errors = validatePassword(value);
+        break;
+      case 'confirmPassword':
+        if (value !== formData.password) {
+          errors = ['Konfirmasi password harus sama dengan password.'];
+        }
+        break;
+    }
+    
+    setFieldErrors(prev => ({ ...prev, [name]: errors.length > 0 ? errors[0] : '' }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
-    setFieldErrors({});
-
-    if (formData.password !== formData.confirmPassword) {
-      setFieldErrors(prev => ({ ...prev, confirmPassword: 'Passwords do not match.' }));
+    
+    // Validate all fields
+    const validationErrors = {
+      firstName: validateName(formData.firstName, 'First name'),
+      lastName: validateName(formData.lastName, 'Last name'),
+      email: validateEmail(formData.email),
+      password: validatePassword(formData.password),
+      confirmPassword: formData.password !== formData.confirmPassword ? ['Konfirmasi password harus sama dengan password.'] : []
+    };
+    
+    // Convert to single error messages
+    const errorMessages = {};
+    Object.keys(validationErrors).forEach(key => {
+      if (validationErrors[key].length > 0) {
+        errorMessages[key] = validationErrors[key][0];
+      }
+    });
+    
+    setFieldErrors(errorMessages);
+    
+    // Check if there are any errors
+    if (Object.keys(errorMessages).length > 0) {
       setError('Please fix the highlighted fields.');
       return;
     }
@@ -47,21 +89,20 @@ const RegisterAdminPage = () => {
     setLoading(true);
 
     try {
-      // Kirim semua field termasuk confirmPassword agar sinkron dengan validasi backend
       const response = await authService.register(formData);
-      
       setSuccessMessage(response.message || 'Registration successful! Redirecting to login...');
-
       setTimeout(() => {
         navigate('/login/admin');
       }, 2500);
-
     } catch (err) {
-      const apiData = err.response?.data || {};
-      const errorMessage = apiData.message || 'Registration failed. Please try again.';
-      setError(errorMessage);
-      if (apiData.errorField && typeof apiData.errorField === 'object') {
-        setFieldErrors(apiData.errorField);
+      setError(err.message || 'Registration failed. Please try again.');
+      if (err.details) {
+        const backendErrors = {};
+        err.details.forEach(detail => {
+          const field = detail.path?.[0];
+          if (field) backendErrors[field] = detail.message;
+        });
+        setFieldErrors(backendErrors);
       }
     } finally {
       setLoading(false);
@@ -103,35 +144,35 @@ const RegisterAdminPage = () => {
           <div className={className.inputGroup}>
             <div className={className.icon}><FaUser /></div>
             <div className={className.separator}></div>
-            <input name="firstName" type="text" placeholder="First Name" className={className.input} value={formData.firstName} onChange={handleChange} required />
+            <input name="firstName" type="text" placeholder="First Name" className={`${className.input} ${fieldErrors.firstName ? 'border-red-300' : ''}`} value={formData.firstName} onChange={handleChange} maxLength="20" />
           </div>
           {fieldErrors.firstName && <p className="text-red-300 text-xs mt-1">{fieldErrors.firstName}</p>}
           {/* Last Name */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaUser /></div>
             <div className={className.separator}></div>
-            <input name="lastName" type="text" placeholder="Last Name" className={className.input} value={formData.lastName} onChange={handleChange} required />
+            <input name="lastName" type="text" placeholder="Last Name" className={`${className.input} ${fieldErrors.lastName ? 'border-red-300' : ''}`} value={formData.lastName} onChange={handleChange} maxLength="20" />
           </div>
           {fieldErrors.lastName && <p className="text-red-300 text-xs mt-1">{fieldErrors.lastName}</p>}
           {/* Email */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaEnvelope /></div>
             <div className={className.separator}></div>
-            <input name="email" type="email" placeholder="Email (@binus.ac.id or @gmail.com)" className={className.input} value={formData.email} onChange={handleChange} required />
+            <input name="email" type="email" placeholder="Email (@binus.ac.id or @gmail.com)" className={`${className.input} ${fieldErrors.email ? 'border-red-300' : ''}`} value={formData.email} onChange={handleChange} />
           </div>
           {fieldErrors.email && <p className="text-red-300 text-xs mt-1">{fieldErrors.email}</p>}
           {/* Password */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaLock /></div>
             <div className={className.separator}></div>
-            <input name="password" type="password" placeholder="Password (min. 8 characters)" className={className.input} value={formData.password} onChange={handleChange} required />
+            <input name="password" type="password" placeholder="Password (min. 8 characters)" className={`${className.input} ${fieldErrors.password ? 'border-red-300' : ''}`} value={formData.password} onChange={handleChange} minLength="8" maxLength="64" />
           </div>
           {fieldErrors.password && <p className="text-red-300 text-xs mt-1">{fieldErrors.password}</p>}
           {/* Confirm Password */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaLock /></div>
             <div className={className.separator}></div>
-            <input name="confirmPassword" type="password" placeholder="Confirm Password" className={className.input} value={formData.confirmPassword} onChange={handleChange} required />
+            <input name="confirmPassword" type="password" placeholder="Confirm Password" className={`${className.input} ${fieldErrors.confirmPassword ? 'border-red-300' : ''}`} value={formData.confirmPassword} onChange={handleChange} />
           </div>
           {fieldErrors.confirmPassword && <p className="text-red-300 text-xs mt-1">{fieldErrors.confirmPassword}</p>}
           

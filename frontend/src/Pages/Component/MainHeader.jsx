@@ -1,18 +1,19 @@
 // src/components/MainHeader.jsx
 import React from 'react';
-import { useAuth } from '../Auth/AuthContext'; // Sesuaikan path
+import { useAuth } from '../Auth/AuthContext';
 import avatar from '../../assets/profilePhoto.jpg';
-import authService from '../../services/authService';
 
 const MainHeader = ({ pageTitle }) => {
-  const { getCurrentUser, logout } = authService;
-
-  const user = getCurrentUser();
-
-  console.log("User", user);
+  const { user, logout } = useAuth();
+  
+  // Fallback to localStorage if context user is null
+  const currentUser = user || JSON.parse(localStorage.getItem('user') || 'null');
+  
+  console.log("User from context:", user);
+  console.log("User from localStorage:", currentUser);
 
   // Jika user tidak ada, tampilkan header default tanpa info user
-  if (!user) {
+  if (!currentUser) {
     return (
       <div className="w-full h-fit px-10 py-5 bg-white grid grid-cols-3 gap-6 shadow-md items-center">
         <div>
@@ -38,11 +39,10 @@ const MainHeader = ({ pageTitle }) => {
 
       <div className="flex items-center justify-end gap-5">
         <div className="text-right">
-          {/* --- PERBAIKAN DI SINI --- */}
-          <h1 className="text-lg font-semibold">{user.email}</h1>
-          <p className="text-sm text-gray-500 capitalize">{user.role}</p>
+          <h1 className="text-lg font-semibold">{currentUser?.role?.replace('_', ' ') || 'User'}</h1>
+          <p className="text-sm text-gray-500">ID: {currentUser?.userId || 'N/A'}</p>
         </div>
-        <img src={user.avatar || avatar} alt={user.email} className="w-10 h-10 rounded-full object-cover" />
+        <img src={currentUser?.avatar || avatar} alt={currentUser?.role || 'User'} className="w-10 h-10 rounded-full object-cover" />
 
         <button onClick={logout} className="self-center ml-4 px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600">
           Log Out

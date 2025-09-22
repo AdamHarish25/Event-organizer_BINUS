@@ -16,6 +16,7 @@ const VerifyOtp = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [otpErrors, setOtpErrors] = useState([]);
 
   useEffect(() => {
     const qEmail = query.get('email');
@@ -28,12 +29,22 @@ const VerifyOtp = () => {
     setMessage('');
     setLoading(true);
     
-    // Basic validation
-    if (!otp || otp.length < 4) {
-      setError('Masukkan kode OTP yang valid (minimal 4 digit).');
+    // Validate OTP - backend expects exactly 6 characters
+    if (!otp) {
+      setOtpErrors(['OTP wajib diisi.']);
+      setError('Please fix the OTP field.');
       setLoading(false);
       return;
     }
+    
+    if (otp.length !== 6) {
+      setOtpErrors(['OTP 6 karakter.']);
+      setError('Please fix the OTP field.');
+      setLoading(false);
+      return;
+    }
+    
+    setOtpErrors([]);
     
     if (!email) {
       setError('Email tidak ditemukan. Silakan kembali ke halaman sebelumnya.');
@@ -68,8 +79,9 @@ const VerifyOtp = () => {
           <div className="flex items-center bg-white rounded-md overflow-hidden">
             <div className="p-3 text-[#3F88BC]"><FaKey /></div>
             <div className="w-px bg-[#3F88BC] h-10" />
-            <input type="text" className="w-full p-3 text-gray-700 outline-none" placeholder="Kode OTP" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+            <input type="text" className={`w-full p-3 text-gray-700 outline-none ${otpErrors.length ? 'bg-red-50' : ''}`} placeholder="Kode OTP (6 digit)" value={otp} onChange={(e) => { const val = e.target.value.replace(/\D/g, '').slice(0, 6); setOtp(val); setOtpErrors(val.length === 6 ? [] : val.length === 0 ? ['OTP wajib diisi.'] : ['OTP 6 karakter.']); }} maxLength="6" />
           </div>
+          {otpErrors.map((err, idx) => <p key={idx} className="text-red-200 text-xs">{err}</p>)}
           {error && <p className="text-red-200 text-sm">{error}</p>}
           {message && <p className="text-green-200 text-sm">{message}</p>}
           <div className="flex justify-between items-center">

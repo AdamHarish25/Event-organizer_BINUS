@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FaLock } from 'react-icons/fa';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import authService from '../../services/authService';
+import { validatePassword } from '../../services/validation';
 
 function useQuery() {
   const { search } = useLocation();
@@ -17,6 +18,7 @@ const ResetPassword = () => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState([]);
 
   useEffect(() => {
     const qEmail = query.get('email');
@@ -30,9 +32,12 @@ const ResetPassword = () => {
     setError('');
     setMessage('');
     
-    // Validation
-    if (!password || password.length < 8) {
-      setError('Password minimal 8 karakter.');
+    // Validate password using backend rules
+    const passwordValidationErrors = validatePassword(password);
+    setPasswordErrors(passwordValidationErrors);
+    
+    if (passwordValidationErrors.length > 0) {
+      setError('Please fix the password field.');
       return;
     }
     
@@ -67,8 +72,9 @@ const ResetPassword = () => {
           <div className="flex items-center bg-white rounded-md overflow-hidden">
             <div className="p-3 text-[#3F88BC]"><FaLock /></div>
             <div className="w-px bg-[#3F88BC] h-10" />
-            <input type="password" className="w-full p-3 text-gray-700 outline-none" placeholder="Password baru" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input type="password" className={`w-full p-3 text-gray-700 outline-none ${passwordErrors.length ? 'bg-red-50' : ''}`} placeholder="Password baru (min. 8 karakter)" value={password} onChange={(e) => { setPassword(e.target.value); setPasswordErrors(validatePassword(e.target.value)); }} minLength="8" maxLength="30" />
           </div>
+          {passwordErrors.map((err, idx) => <p key={idx} className="text-red-200 text-xs">{err}</p>)}
           {error && <p className="text-red-200 text-sm">{error}</p>}
           {message && <p className="text-green-200 text-sm">{message}</p>}
           <div className="flex justify-between items-center">

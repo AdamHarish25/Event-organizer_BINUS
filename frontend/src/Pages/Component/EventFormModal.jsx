@@ -1,8 +1,8 @@
 // src/components/EventFormModal.jsx
 import React, { useState, useEffect } from 'react';
+import { validateEventName, validateTime, validateTimeRange, validateDate, validateLocation, validateSpeaker, validateImage } from '../../services/validation';
 
 const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage }) => {
-  // State asli untuk data form (tetap utuh)
   const [formData, setFormData] = useState({
     eventName: '',
     location: '',
@@ -12,11 +12,8 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
     speaker: '',
     image: null
   });
-
-  // State baru untuk mengontrol visibilitas pratinjau
+  const [errors, setErrors] = useState({});
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
-
-  // State baru untuk menyimpan sumber URL gambar pratinjau
   const [previewImageSrc, setPreviewImageSrc] = useState(null);
 
   const isEditMode = Boolean(eventToEdit);
@@ -50,23 +47,84 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
       const file = files[0];
       setFormData(prev => ({ ...prev, image: file }));
       setPreviewImageSrc(URL.createObjectURL(file));
+      
+      // Validate image
+      const imageErrors = validateImage(file, !isEditMode);
+      setErrors(prev => ({ ...prev, image: imageErrors }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      
+      // Real-time validation
+      let fieldErrors = [];
+      switch(name) {
+        case 'eventName':
+          fieldErrors = validateEventName(value);
+          break;
+        case 'startTime':
+          fieldErrors = validateTime(value, 'Waktu mulai event');
+          if (fieldErrors.length === 0 && formData.endTime) {
+            const timeRangeErrors = validateTimeRange(value, formData.endTime);
+            fieldErrors = [...fieldErrors, ...timeRangeErrors];
+          }
+          break;
+        case 'endTime':
+          fieldErrors = validateTime(value, 'Waktu selesai event');
+          if (fieldErrors.length === 0 && formData.startTime) {
+            const timeRangeErrors = validateTimeRange(formData.startTime, value);
+            fieldErrors = [...fieldErrors, ...timeRangeErrors];
+          }
+          break;
+        case 'date':
+          fieldErrors = validateDate(value, formData.startTime);
+          break;
+        case 'location':
+          fieldErrors = validateLocation(value);
+          break;
+        case 'speaker':
+          fieldErrors = validateSpeaker(value);
+          break;
+      }
+      setErrors(prev => ({ ...prev, [name]: fieldErrors }));
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate all fields
+    const allErrors = {
+      eventName: validateEventName(formData.eventName),
+      startTime: validateTime(formData.startTime, 'Waktu mulai event'),
+      endTime: validateTime(formData.endTime, 'Waktu selesai event'),
+      date: validateDate(formData.date, formData.startTime),
+      location: validateLocation(formData.location),
+      speaker: validateSpeaker(formData.speaker),
+      image: validateImage(formData.image, !isEditMode)
+    };
+    
+    // Add time range validation
+    if (allErrors.startTime.length === 0 && allErrors.endTime.length === 0) {
+      const timeRangeErrors = validateTimeRange(formData.startTime, formData.endTime);
+      if (timeRangeErrors.length > 0) {
+        allErrors.endTime = [...allErrors.endTime, ...timeRangeErrors];
+      }
+    }
+    
+    setErrors(allErrors);
+    
+    // Check if there are any errors
+    const hasErrors = Object.values(allErrors).some(errorArray => errorArray.length > 0);
+    if (hasErrors) return;
+    
     const fd = new FormData();
-    fd.append('eventName', formData.eventName);
+    fd.append('eventName', formData.eventName.trim());
     fd.append('date', formData.date);
     fd.append('startTime', formData.startTime);
     fd.append('endTime', formData.endTime);
-    fd.append('location', formData.location);
-    fd.append('speaker', formData.speaker);
+    fd.append('location', formData.location.trim());
+    if (formData.speaker) fd.append('speaker', formData.speaker.trim());
     if (formData.image) fd.append('image', formData.image);
     onSave(fd);
-    console.log([...fd.entries()]);
   };
 
   // Fungsi untuk toggle pratinjau
@@ -95,43 +153,51 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             {/* Input fields tetap sama */}
             <div>
-              <label htmlFor="eventName" className="block text-sm font-medium text-gray-600">Event Name</label>
-              <input type="text" name="eventName" id="eventName" value={formData.eventName} onChange={handleChange} className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500" required />
+              <label htmlFor="eventName" className="block text-sm font-medium text-gray-600">Event Name *</label>
+              <input type="text" name="eventName" id="eventName" value={formData.eventName} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.eventName?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
+              {errors.eventName?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
             </div>
 
 
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-600">Location</label>
-                <input type="text" name="location" id="location" value={formData.location} onChange={handleChange} className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500" required />
+                <label htmlFor="location" className="block text-sm font-medium text-gray-600">Location *</label>
+                <input type="text" name="location" id="location" value={formData.location} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.location?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
+                {errors.location?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
               </div>
 
               <div>
                 <label htmlFor="speaker" className="block text-sm font-medium text-gray-600">Speaker</label>
-                <input type="text" name="speaker" id="speaker" value={formData.speaker} onChange={handleChange} className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500" required />
+                <input type="text" name="speaker" id="speaker" value={formData.speaker} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.speaker?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
+                {errors.speaker?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
               </div>
 
             </div>
 
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-600">Date</label>
-              <input type="date" name="date" id="date" value={formData.date} onChange={handleChange} className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500" required />
+              <label htmlFor="date" className="block text-sm font-medium text-gray-600">Date *</label>
+              <input type="date" name="date" id="date" value={formData.date} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.date?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
+              {errors.date?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="startTime" className="block text-sm font-medium text-gray-600">Start Time</label>
-                <input type="time" name="startTime" id="startTime" value={formData.startTime} onChange={handleChange} className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500" required />
+                <label htmlFor="startTime" className="block text-sm font-medium text-gray-600">Start Time *</label>
+                <input type="time" name="startTime" id="startTime" value={formData.startTime} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.startTime?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
+                {errors.startTime?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
               </div>
 
               <div>
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-600">End Time</label>
-                <input type="time" name="endTime" id="endTime" value={formData.endTime} onChange={handleChange} className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500" required />
+                <label htmlFor="endTime" className="block text-sm font-medium text-gray-600">End Time *</label>
+                <input type="time" name="endTime" id="endTime" value={formData.endTime} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.endTime?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
+                {errors.endTime?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
               </div>
             </div>
             <div>
-              <label htmlFor="image" className="block text-sm font-medium text-gray-600">Poster</label>
-              <input type="file" name="image" id="image" onChange={handleChange} className="mt-1 w-full text-sm file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:py-2 file:px-4 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
+              <label htmlFor="image" className="block text-sm font-medium text-gray-600">Poster {!isEditMode && '*'}</label>
+              <input type="file" name="image" id="image" onChange={handleChange} accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" className={`mt-1 w-full text-sm file:mr-4 file:rounded-full file:border-0 file:py-2 file:px-4 file:text-sm file:font-semibold hover:file:bg-blue-100 ${errors.image?.length ? 'file:bg-red-50 file:text-red-700' : 'file:bg-blue-50 file:text-blue-700'}`} />
+              {errors.image?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
+              <p className="text-xs text-gray-500 mt-1">Max 10MB. Formats: JPEG, JPG, PNG, GIF, WebP</p>
             </div>
 
             {/* Tombol Toggle Pratinjau */}

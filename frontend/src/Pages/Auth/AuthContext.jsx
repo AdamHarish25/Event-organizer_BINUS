@@ -12,21 +12,18 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Cek user dari localStorage saat aplikasi pertama kali dimuat
     const currentUser = authService.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
+      console.log('User loaded from localStorage:', currentUser);
     }
     setLoading(false);
   }, []);
 
-  // 2. Ganti fungsi login ini
   const login = async (email, password) => {
-    // Panggil fungsi login dari authService yang asli
     const userData = await authService.login(email, password);
-    setUser(userData); // Simpan data user (termasuk token dan role) ke state
+    setUser(userData);
     
-    // Arahkan berdasarkan role setelah login berhasil
     if (userData.role === 'admin') {
       navigate('/admin/dashboard');
     } else if (userData.role === 'super_admin') {
@@ -34,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       navigate('/dashboard');
     }
-    return userData; // Kembalikan data user
+    return userData;
   };
 
   const logout = () => {
