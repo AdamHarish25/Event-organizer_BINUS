@@ -117,11 +117,12 @@ const router = express.Router();
  *       429:
  *         description: Too Many Requests (Rate limit terlampaui).
  */
+// Change this in backend/routes/notification.routes.js:
 router.get(
     "/",
-    notificationLimiter,
-    accessTokenValidator(ACCESS_JWT_SECRET),
+    accessTokenValidator(ACCESS_JWT_SECRET), // <--- MOVE THIS UP
     authenticateBlacklistedToken,
+    notificationLimiter, // <--- MOVE THIS DOWN
     getNotification
 );
 
@@ -168,11 +169,12 @@ router.get(
  *       429:
  *         description: Too Many Requests (Rate limit terlampaui).
  */
+// Do the same for the other route
 router.patch(
     "/:notificationId/read",
-    notificationLimiter,
-    accessTokenValidator(ACCESS_JWT_SECRET),
+    accessTokenValidator(ACCESS_JWT_SECRET), // <--- MOVE THIS UP
     authenticateBlacklistedToken,
+    notificationLimiter, // <--- MOVE THIS DOWN
     schemaValidator({ params: notificationParamsSchema }),
     markAsRead
 );

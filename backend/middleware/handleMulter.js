@@ -1,4 +1,5 @@
 import AppError from "../utils/AppError.js";
+import logger from "../utils/logger.js";
 
 const handleMulter = (multerMiddleware) => {
     return (req, res, next) => {
