@@ -48,7 +48,7 @@ class SocketService {
   // Listen for real-time notifications
   onNotification(callback) {
     if (this.socket) {
-      this.socket.on('notification', callback);
+      this.socket.on('new_notification', callback);
     }
   }
 

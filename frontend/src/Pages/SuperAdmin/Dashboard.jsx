@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../Auth/AuthContext';
 import MainHeader from '../Component/MainHeader';
 import { StatusModal } from '../Component/StatusModal';
 import { ConfirmationModal } from '../Component/ConfirmationModal';
 import TextInputModal from '../Component/TextInputModal';
+import EventDetailModal from '../Component/EventDetailModal';
 import FeedbackPanel from '../Component/FeedbackPanel';
 import { approveEvent, rejectEvent, getEvents, sendFeedback } from '../../services/eventService';
 import notificationService from '../../services/notificationService';
+import socketService from '../../services/socketService';
 
 const SuperAdminDashboard = () => {
+  const { user } = useAuth();
   const [allEvents, setAllEvents] = useState([]);
   // Notifikasi pendaftaran admin
   const [adminNotifications, setAdminNotifications] = useState([]);
@@ -17,6 +21,8 @@ const SuperAdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [modal, setModal] = useState({ type: null, data: null });
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEventDetail, setShowEventDetail] = useState(false);
 
   // State untuk Paginasi
   const [paginationInfo, setPaginationInfo] = useState(null);
@@ -75,10 +81,44 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // Socket connection and realtime notifications
+  useEffect(() => {
+    if (user?.accessToken) {
+      // Connect socket
+      socketService.connect(user.accessToken);
+      
+      // Listen for new notifications
+      const handleNewNotification = (notification) => {
+        console.log('New notification received:', notification);
+        // Add new notification to the top of the list
+        setAdminNotifications(prev => [notification, ...prev]);
+        
+        // Show toast for admin registration
+        if (notification.type === 'admin_registered') {
+          setModal({
+            type: 'status',
+            data: {
+              variant: 'success',
+              title: 'Admin Baru Terdaftar',
+              message: notification.message
+            }
+          });
+        }
+      };
+      
+      socketService.onNotification(handleNewNotification);
+      
+      return () => {
+        socketService.off('new_notification', handleNewNotification);
+        socketService.disconnect();
+      };
+    }
+  }, [user?.accessToken]);
+
   useEffect(() => {
     fetchEvents(currentPage);
     fetchAdminNotifications();
-    const interval = setInterval(fetchAdminNotifications, 10000);
+    const interval = setInterval(fetchAdminNotifications, 30000); // Reduced frequency due to realtime
     return () => clearInterval(interval);
   }, [currentPage]);
 
@@ -167,18 +207,37 @@ const SuperAdminDashboard = () => {
     });
   };
 
+  // Handler untuk klik event - tampilkan detail modal
+  const handleEventClick = (event) => {
+    setSelectedEvent(event);
+    setShowEventDetail(true);
+  };
+
+  // Handler untuk menutup modal detail event
+  const handleCloseEventDetail = () => {
+    setShowEventDetail(false);
+    setSelectedEvent(null);
+  };
+
   // Klik notifikasi pendaftaran admin: tampilkan detail ringkas
   const handleAdminNotifClick = (n) => {
     let payload = {};
-    try { payload = typeof n.payload === 'string' ? JSON.parse(n.payload) : (n.payload || {}); } catch { payload = n.payload || {}; }
-    const name = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || payload.name || 'Calon Admin';
+    try { 
+      payload = typeof n.payload === 'string' ? JSON.parse(n.payload) : (n.payload || n.data || {}); 
+    } catch { 
+      payload = n.payload || n.data || {}; 
+    }
+    
+    const name = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || payload.name || 'Admin Baru';
     const email = payload.email || '-';
+    const registeredAt = payload.registeredAt ? new Date(payload.registeredAt).toLocaleString('id-ID') : 'Baru saja';
+    
     setModal({
       type: 'status',
       data: {
         variant: 'success',
-        title: 'Pendaftaran Admin Baru',
-        message: `Nama: ${name}\nEmail: ${email}`,
+        title: 'Detail Admin Baru',
+        message: `Nama: ${name}\nEmail: ${email}\nTerdaftar: ${registeredAt}`,
       }
     });
   };
@@ -221,15 +280,19 @@ const SuperAdminDashboard = () => {
             </thead>
             <tbody>
               {filteredEvents.map(event => (
-                <tr key={event.id}>
-                  <td className="p-2">{event.eventName}</td>
+                <tr 
+                  key={event.id} 
+                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => handleEventClick(event)}
+                >
+                  <td className="p-2 font-medium text-blue-600 hover:text-blue-800">{event.eventName}</td>
                   <td>{event.location}</td>
                   <td>{event.date}</td>
-                  <td><span className={`px-2 py-1 rounded-full text-xs font-semibold ${event.status === 'approved' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{event.status}</span></td>
-                  <td className="flex gap-2">
-                    <button onClick={() => handleApprove(event.id, event.eventName)} className="text-green-500 font-bold">Approve</button>
-                    <button onClick={() => handleReject(event.id, event.eventName)} className="text-red-500 font-bold">Reject</button>
-                    <button onClick={() => handleFeedback(event.id, event.eventName)} className="text-blue-500 font-bold">Revise</button>
+                  <td><span className={`px-2 py-1 rounded-full text-xs font-semibold ${event.status === 'approved' ? 'bg-green-200 text-green-800' : event.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : event.status === 'revised' ? 'bg-orange-200 text-orange-800' : 'bg-red-200 text-red-800'}`}>{event.status}</span></td>
+                  <td className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => handleApprove(event.id, event.eventName)} className="text-green-500 font-bold hover:text-green-700">Approve</button>
+                    <button onClick={() => handleReject(event.id, event.eventName)} className="text-red-500 font-bold hover:text-red-700">Reject</button>
+                    <button onClick={() => handleFeedback(event.id, event.eventName)} className="text-blue-500 font-bold hover:text-blue-700">Revise</button>
                   </td>
                 </tr>
               ))}
@@ -281,6 +344,23 @@ const SuperAdminDashboard = () => {
         label={modal.data?.label}
         placeholder={modal.data?.placeholder}
         defaultValue={modal.data?.defaultValue}
+      />
+      <EventDetailModal
+        isOpen={showEventDetail}
+        onClose={handleCloseEventDetail}
+        event={selectedEvent}
+        onApprove={(eventId, eventName) => {
+          handleCloseEventDetail();
+          handleApprove(eventId, eventName);
+        }}
+        onReject={(eventId, eventName) => {
+          handleCloseEventDetail();
+          handleReject(eventId, eventName);
+        }}
+        onRevise={(eventId, eventName) => {
+          handleCloseEventDetail();
+          handleFeedback(eventId, eventName);
+        }}
       />
     </div>
   );

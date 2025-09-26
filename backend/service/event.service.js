@@ -123,8 +123,18 @@ export const getPaginatedEventsService = async (options) => {
             );
         }
 
+        const includeOptions = [];
+        if (role === "super_admin") {
+            includeOptions.push({
+                model: options.UserModel,
+                as: "creator",
+                attributes: ["firstName", "lastName", "email"],
+            });
+        }
+
         const { count, rows } = await EventModel.findAndCountAll({
             where: whereClause,
+            include: includeOptions,
             limit: limitNum,
             offset,
             order: [["createdAt", "DESC"]],
@@ -415,18 +425,26 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
             eventDataForCleanupAndNotify = event.toJSON();
             adminName = event.creator.firstName;
 
+            // Delete old notifications for this event first
+            await NotificationModel.destroy({
+                where: { eventId: eventDataForCleanupAndNotify.id },
+                transaction: t,
+            });
+            logger.info("Old notifications deleted for event deletion");
+
+            await event.destroy({ transaction: t });
+            logger.info("Event record successfully deleted from database");
+
+            // Create new "Event Terhapus" notifications
             const notifications = superAdmins.map((superAdmin) => ({
-                eventId: eventDataForCleanupAndNotify.id,
+                eventId: null, // Set to null since event is deleted
                 senderId: adminId,
                 recipientId: superAdmin.id,
                 notificationType: "event_deleted",
                 payload: {
                     eventName: eventDataForCleanupAndNotify.eventName,
-                    time: eventDataForCleanupAndNotify.time,
-                    date: eventDataForCleanupAndNotify.date,
-                    location: eventDataForCleanupAndNotify.location,
-                    speaker: eventDataForCleanupAndNotify.speaker,
-                    imageUrl: eventDataForCleanupAndNotify.imageUrl,
+                    message: "Event Terhapus",
+                    deletedBy: adminName,
                 },
             }));
 
@@ -437,8 +455,6 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
             logger.info(
                 `Notification records created for ${superAdmins.length} super admins about the deletion`
             );
-
-            await event.destroy({ transaction: t });
             logger.info("Event record successfully deleted from database");
         });
         logger.info("Database transaction committed successfully");
@@ -498,16 +514,27 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
         }
 
         if (eventDataForCleanupAndNotify) {
-            const io = socketService.getIO();
-            io.to("super_admin-room").emit("new_notification", {
-                type: "event_deleted",
-                title: `Event "${eventDataForCleanupAndNotify.eventName}" has been deleted.`,
-                message: `${adminName} removed this event from the system. No further action is required`,
-                data: eventDataForCleanupAndNotify,
-            });
-            logger.info(
-                "Socket notification for event deletion emitted successfully"
-            );
+            try {
+                const io = socketService.getIO();
+                io.to("super_admin-room").emit("new_notification", {
+                    type: "event_deleted",
+                    title: "Event Terhapus",
+                    message: `Event "${eventDataForCleanupAndNotify.eventName}" telah dihapus oleh ${adminName}.`,
+                    isRead: false,
+                    data: {
+                        eventName: eventDataForCleanupAndNotify.eventName,
+                        deletedBy: adminName,
+                    },
+                });
+                logger.info(
+                    "Socket notification for event deletion emitted successfully"
+                );
+            } catch (socketError) {
+                logger.warn(
+                    "Failed to emit socket notification for event deletion",
+                    { error: socketError.message }
+                );
+            }
         }
 
         return true;
@@ -566,7 +593,8 @@ export const sendFeedback = async (
                 feedback,
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -677,6 +705,13 @@ export const editEventService = async (
             }
             logger.info("Event found in database. Proceeding with update.");
 
+            // Delete old notifications for this event
+            await NotificationModel.destroy({
+                where: { eventId: eventId },
+                transaction: t,
+            });
+            logger.info("Old notifications deleted for event update");
+
             const dataToUpdate = image
                 ? {
                       ...data,
@@ -710,7 +745,8 @@ export const editEventService = async (
                 notificationType: "event_updated",
                 payload: {
                     eventName: updatedPayloadData.eventName,
-                    time: updatedPayloadData.time,
+                    startTime: updatedPayloadData.startTime,
+                    endTime: updatedPayloadData.endTime,
                     date: updatedPayloadData.date,
                     location: updatedPayloadData.location,
                     speaker: updatedPayloadData.speaker,
@@ -725,7 +761,8 @@ export const editEventService = async (
                 notificationType: "event_pending",
                 payload: {
                     eventName: updatedPayloadData.eventName,
-                    time: updatedPayloadData.time,
+                    startTime: updatedPayloadData.startTime,
+                    endTime: updatedPayloadData.endTime,
                     date: updatedPayloadData.date,
                     location: updatedPayloadData.location,
                     speaker: updatedPayloadData.speaker,
@@ -738,7 +775,7 @@ export const editEventService = async (
             });
 
             logger.info(
-                "Notification records for event update created successfully",
+                "New notification records for event update created successfully",
                 { context: { notificationCount: notifications.length } }
             );
 
@@ -747,23 +784,33 @@ export const editEventService = async (
 
         logger.info("Database transaction committed successfully");
 
-        const io = socketService.getIO();
-        io.to("super_admin-room").emit("eventUpdated", {
-            message: `Event "${updatedEvent.eventName}" telah diperbarui dan menunggu persetujuan.`,
-            data: updatedEvent,
-        });
+        try {
+            const io = socketService.getIO();
+            io.to("super_admin-room").emit("new_notification", {
+                type: "event_updated",
+                title: "Event Updated",
+                message: `Event "${updatedEvent.eventName}" has been updated and is pending approval.`,
+                isRead: false,
+                data: updatedEvent,
+            });
 
-        io.to(updatedEvent.creatorId).emit("new_notification", {
-            type: "event_pending",
-            title: "Your Request is currently PENDING",
-            message: "We will inform you of the outcome as soon as possible.",
-            isRead: false,
-            data: updatedEvent,
-        });
+            io.to(updatedEvent.creatorId).emit("new_notification", {
+                type: "event_pending",
+                title: "Your Request is currently PENDING",
+                message: "We will inform you of the outcome as soon as possible.",
+                isRead: false,
+                data: updatedEvent,
+            });
 
-        logger.info(
-            "Socket notifications for event update emitted successfully"
-        );
+            logger.info(
+                "Socket notifications for event update emitted successfully"
+            );
+        } catch (socketError) {
+            logger.warn(
+                "Failed to emit socket notifications for event update",
+                { error: socketError.message }
+            );
+        }
 
         return updatedEvent;
     } catch (error) {
@@ -853,7 +900,8 @@ export const rejectEventService = async (
                 feedback,
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -953,7 +1001,8 @@ export const approveEventService = async (
                 notificationType: "event_approved",
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,

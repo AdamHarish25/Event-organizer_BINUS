@@ -11,12 +11,13 @@ const notificationModel = (sequelize, DataTypes) => {
             },
             eventId: {
                 type: DataTypes.UUID,
-                allowNull: false,
+                allowNull: true, // Allow NULL for deleted events
                 references: {
                     model: "events",
                     key: "id",
                 },
-                onDelete: "CASCADE",
+                onDelete: "SET NULL",
+                onUpdate: "CASCADE",
             },
             senderId: {
                 type: DataTypes.UUID,
@@ -43,16 +44,20 @@ const notificationModel = (sequelize, DataTypes) => {
                 allowNull: true,
             },
             notificationType: {
-                type: DataTypes.ENUM(
-                    "event_created",
-                    "event_updated",
-                    "event_deleted",
-                    "event_pending",
-                    "event_revised",
-                    "event_approved",
-                    "event_rejected"
-                ),
+                type: DataTypes.STRING(50),
                 allowNull: false,
+                validate: {
+                    isIn: [[
+                        "event_created",
+                        "event_updated",
+                        "event_deleted",
+                        "event_pending",
+                        "event_revised",
+                        "event_approved",
+                        "event_rejected",
+                        "admin_registered"
+                    ]]
+                }
             },
             isRead: {
                 type: DataTypes.BOOLEAN,

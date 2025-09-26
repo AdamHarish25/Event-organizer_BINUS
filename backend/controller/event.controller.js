@@ -56,6 +56,7 @@ export const eventViewer = async (req, res, next) => {
             page,
             limit,
             EventModel: db.Event,
+            UserModel: db.User,
             logger: controllerLogger,
         });
 
@@ -180,7 +181,7 @@ export const deleteEvent = async (req, res, next) => {
 
         res.status(200).json({
             status: "success",
-            message: "Event Successly Deleted",
+            message: "Event Successfully Deleted",
         });
     } catch (error) {
         const logLevel =

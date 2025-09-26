@@ -8,8 +8,10 @@ import { ConfirmationModal } from '../Component/ConfirmationModal';
 import { StatusModal } from '../Component/StatusModal';
 import { createEvent, editEvent, deleteEvent, getEvents } from '../../services/eventService';
 import notificationService from '../../services/notificationService';
+import socketService from '../../services/socketService';
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
   const [allEvents, setAllEvents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -40,9 +42,43 @@ const AdminDashboard = () => {
     }
   };
 
+  // Socket connection and realtime notifications
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000);
+    if (user?.accessToken) {
+      // Connect socket
+      socketService.connect(user.accessToken);
+      
+      // Listen for new notifications
+      const handleNewNotification = (notification) => {
+        console.log('New notification received:', notification);
+        // Add new notification to the top of the list
+        setNotifications(prev => [notification, ...prev]);
+        
+        // Show toast or modal for important notifications
+        if (notification.type === 'event_deleted') {
+          handleOpenModal('status', {
+            variant: 'info',
+            title: 'Event Terhapus',
+            message: notification.message
+          });
+        }
+      };
+      
+      socketService.onNotification(handleNewNotification);
+      
+      // Initial fetch
+      fetchNotifications();
+      
+      return () => {
+        socketService.off('new_notification', handleNewNotification);
+        socketService.disconnect();
+      };
+    }
+  }, [user?.accessToken]);
+
+  // Fallback polling for notifications (reduced frequency since we have realtime)
+  useEffect(() => {
+    const interval = setInterval(fetchNotifications, 30000); // 30 seconds instead of 10
     return () => clearInterval(interval);
   }, []);
 
@@ -57,6 +93,12 @@ const AdminDashboard = () => {
       console.error('Error fetching events:', err);
       setAllEvents([]);
       setPaginationInfo(null);
+      // Show user-friendly error message
+      handleOpenModal('status', { 
+        variant: 'danger', 
+        title: 'Error!', 
+        message: 'Gagal memuat data event. Silakan coba lagi.' 
+      });
     }
   };
 
@@ -99,9 +141,19 @@ const AdminDashboard = () => {
   const handleNotificationClick = (notif) => {
     let payload = {};
     try {
-      payload = typeof notif.payload === 'string' ? JSON.parse(notif.payload) : (notif.payload || {});
-    } catch {
-      payload = notif.payload || {};
+      // Safely parse payload with additional validation
+      if (typeof notif.payload === 'string') {
+        const parsed = JSON.parse(notif.payload);
+        // Only accept plain objects, reject functions or other dangerous types
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          payload = parsed;
+        }
+      } else if (notif.payload && typeof notif.payload === 'object') {
+        payload = notif.payload;
+      }
+    } catch (error) {
+      console.warn('Failed to parse notification payload:', error);
+      payload = {};
     }
 
     // Cari eventId yang mungkin ada di payload

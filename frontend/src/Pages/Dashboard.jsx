@@ -79,9 +79,9 @@ const DashboardUser = () => {
     title: event.eventName,
     location: event.location,
     speaker: event.speaker,
-    date: event.date,
+    date: new Date(event.date).toLocaleDateString(),
     time: `${event.startTime} - ${event.endTime}`,
-    image: event.imageUrl 
+    image: event.imageUrl || '/api/placeholder/400/300'
   }));
 
   return (

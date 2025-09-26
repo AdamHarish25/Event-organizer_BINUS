@@ -166,10 +166,19 @@ export const saveOTPToDatabase = async (
     const { OTPModel } = model;
 
     try {
-        logger.info("Saving new OTP to database process started");
+        logger.info("Saving new OTP to database process started", {
+            context: { userId }
+        });
+
+        // Validate userId
+        if (!userId) {
+            throw new AppError("User ID is required", 400, "INVALID_USER_ID");
+        }
 
         const otpHash = await bcrypt.hash(otp, OTP_CONFIG.BCRYPT_ROUNDS);
+        logger.info("OTP hashed successfully");
 
+        // Invalidate previous OTPs
         const [updatedRows] = await OTPModel.update(
             { valid: false, invalidatedAt: new Date() },
             {
@@ -194,6 +203,15 @@ export const saveOTPToDatabase = async (
         const expiresAt = new Date(
             Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
         );
+        
+        logger.info("Creating new OTP record", {
+            context: {
+                userId,
+                expiresAt,
+                hasTransaction: !!transaction
+            }
+        });
+
         const newOTP = await OTPModel.create(
             {
                 userId,
@@ -226,9 +244,29 @@ export const saveOTPToDatabase = async (
                     message: error.message,
                     stack: error.stack,
                     name: error.name,
+                    code: error.code,
+                    sql: error.sql,
                 },
+                context: { userId }
             }
         );
+
+        // Check for specific database errors
+        if (error.name === 'SequelizeValidationError') {
+            throw new AppError(
+                "Data OTP tidak valid.",
+                400,
+                "VALIDATION_ERROR"
+            );
+        }
+        
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            throw new AppError(
+                "User tidak ditemukan.",
+                404,
+                "USER_NOT_FOUND"
+            );
+        }
 
         throw new AppError(
             "Gagal menyimpan OTP karena masalah internal.",

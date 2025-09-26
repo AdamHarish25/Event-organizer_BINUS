@@ -37,6 +37,12 @@ const ForgotPassword = () => {
       setTimeout(() => navigate(`/verify-otp?email=${encodeURIComponent(email)}`), 800);
     } catch (err) {
       console.error('Forgot password error in component:', err);
+      console.error('Error details:', {
+        message: err?.message,
+        error: err?.error,
+        status: err?.status,
+        response: err?.response
+      });
       const msg = err?.message || err?.error || 'Gagal mengirim OTP.';
       setError(typeof msg === 'string' ? msg : 'Gagal mengirim OTP.');
     } finally {

@@ -33,7 +33,7 @@ const OTPModel = (sequelize, DataTypes) => {
             },
             valid: {
                 type: DataTypes.BOOLEAN,
-                defaultValue: false,
+                defaultValue: true,
             },
             attempt: {
                 type: DataTypes.INTEGER,

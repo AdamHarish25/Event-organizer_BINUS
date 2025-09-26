@@ -35,9 +35,20 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
     } else {
       // Reset semua state saat modal ditutup atau dalam mode 'New Event'
       setFormData({ eventName: '', location: '', date: '', startTime: '', endTime: '', speaker: '', image: null });
+      // Clean up previous object URL before setting to null
+      if (previewImageSrc && previewImageSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImageSrc);
+      }
       setPreviewImageSrc(null);
       setIsPreviewVisible(false); // Pastikan pratinjau tersembunyi saat dibuka kembali
     }
+    
+    // Cleanup function to revoke object URLs when component unmounts
+    return () => {
+      if (previewImageSrc && previewImageSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImageSrc);
+      }
+    };
   }, [isOpen, eventToEdit, isEditMode]);
 
   const handleChange = (e) => {
@@ -46,6 +57,12 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
     if (name === 'image' && files && files[0]) {
       const file = files[0];
       setFormData(prev => ({ ...prev, image: file }));
+      
+      // Clean up previous object URL before creating new one
+      if (previewImageSrc && previewImageSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImageSrc);
+      }
+      
       setPreviewImageSrc(URL.createObjectURL(file));
       
       // Validate image

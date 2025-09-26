@@ -62,6 +62,12 @@ const VerifyOtp = () => {
       setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(resetToken)}`), 800);
     } catch (err) {
       console.error('Verify OTP error in component:', err);
+      console.error('Error details:', {
+        message: err?.message,
+        error: err?.error,
+        status: err?.status,
+        response: err?.response
+      });
       const msg = err?.message || err?.error || 'OTP tidak valid.';
       setError(typeof msg === 'string' ? msg : 'OTP tidak valid.');
     } finally {
