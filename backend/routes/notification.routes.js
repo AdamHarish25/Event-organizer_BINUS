@@ -120,9 +120,10 @@ const router = express.Router();
 // Change this in backend/routes/notification.routes.js:
 router.get(
     "/",
+    notificationLimiter, 
     accessTokenValidator(ACCESS_JWT_SECRET), // <--- MOVE THIS UP
     authenticateBlacklistedToken,
-    notificationLimiter, // <--- MOVE THIS DOWN
+    notificationLimiter,
     getNotification
 );
 
@@ -172,9 +173,9 @@ router.get(
 // Do the same for the other route
 router.patch(
     "/:notificationId/read",
-    accessTokenValidator(ACCESS_JWT_SECRET), // <--- MOVE THIS UP
+    notificationLimiter, 
+    accessTokenValidator(ACCESS_JWT_SECRET), 
     authenticateBlacklistedToken,
-    notificationLimiter, // <--- MOVE THIS DOWN
     schemaValidator({ params: notificationParamsSchema }),
     markAsRead
 );
