@@ -33,19 +33,11 @@ const OTPModel = (sequelize, DataTypes) => {
             },
             valid: {
                 type: DataTypes.BOOLEAN,
-                defaultValue: true,
+                defaultValue: false,
             },
             attempt: {
                 type: DataTypes.INTEGER,
                 allowNull: false,
-            },
-            verifiedAt: {
-                type: DataTypes.DATE,
-                allowNull: true,
-            },
-            invalidatedAt: {
-                type: DataTypes.DATE,
-                allowNull: true,
             },
         },
         {

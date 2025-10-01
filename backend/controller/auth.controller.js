@@ -7,7 +7,6 @@ import { renewAccessToken } from "../service/token.service.js";
 import { handleUserLogin, handleUserLogout } from "../service/auth.service.js";
 import logger from "../utils/logger.js";
 import AppError from "../utils/AppError.js";
-import socketService from "../socket/index.js";
 
 const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
@@ -44,58 +43,6 @@ export const register = async (req, res, next) => {
             email: newUser.email,
             role: newUser.role,
         });
-
-        // Send realtime notification to Super Admin if new admin registered
-        if (role === 'admin') {
-            try {
-                // Get all super admins
-                const superAdmins = await db.User.findAll({
-                    where: { role: 'super_admin' },
-                    attributes: ['id']
-                });
-
-                // Create notifications for each super admin
-                const notifications = superAdmins.map(superAdmin => ({
-                    eventId: null,
-                    senderId: newUser.id,
-                    recipientId: superAdmin.id,
-                    notificationType: "admin_registered",
-                    payload: {
-                        firstName: newUser.firstName,
-                        lastName: newUser.lastName,
-                        email: newUser.email,
-                        role: newUser.role,
-                        registeredAt: new Date().toISOString(),
-                    },
-                }));
-
-                if (notifications.length > 0) {
-                    await db.Notification.bulkCreate(notifications);
-                }
-
-                // Send realtime notification via socket
-                const io = socketService.getIO();
-                io.to("super_admin-room").emit("new_notification", {
-                    type: "admin_registered",
-                    title: "Admin Baru Terdaftar",
-                    message: `${firstName} ${lastName} telah mendaftar sebagai Admin.`,
-                    isRead: false,
-                    data: {
-                        firstName,
-                        lastName,
-                        email,
-                        role,
-                        registeredAt: new Date().toISOString(),
-                    },
-                });
-
-                registerLogger.info("Admin registration notification sent to Super Admin");
-            } catch (notifError) {
-                registerLogger.warn("Failed to send admin registration notification", {
-                    error: notifError.message
-                });
-            }
-        }
 
         return res
             .status(201)

@@ -34,7 +34,6 @@
         "mysql2": "^3.14.1",
         "node-cron": "^4.2.1",
         "nodemailer": "^7.0.4",
-        "nodemon": "^3.1.10",
         "sequelize": "^6.37.7",
         "socket.io": "^4.8.1",
         "swagger-jsdoc": "^6.2.8",
