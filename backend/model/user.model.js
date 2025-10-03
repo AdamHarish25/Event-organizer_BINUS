@@ -32,6 +32,7 @@ const userModel = (sequelize, DataTypes) => {
             email: {
                 type: DataTypes.STRING(50),
                 allowNull: false,
+                unique: true,
                 validate: {
                     isEmail: true,
                 },
@@ -47,6 +48,7 @@ const userModel = (sequelize, DataTypes) => {
         {
             tableName: "users",
             timestamps: true,
+            paranoid: true,
             indexes: [
                 {
                     fields: ["email"],
@@ -74,6 +76,7 @@ const userModel = (sequelize, DataTypes) => {
         User.hasMany(models.Notification, {
             foreignKey: "senderId",
             as: "sentNotifications",
+            onDelete: "SET NULL",
         });
 
         User.hasMany(models.Notification, {

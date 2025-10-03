@@ -28,7 +28,7 @@ export const notificationLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 
-    keyGenerator: (req, res) => req.user.id || ipKeyGenerator(req),
+    keyGenerator: (req, res) => req.user?.id || ipKeyGenerator(req),
 
     handler: (req, res, next, options) => {
         const correlationId =

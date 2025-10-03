@@ -87,9 +87,7 @@ export const verifyOTP = async (req, res, next) => {
 
         const user = await db.User.findOne({ where: { email } });
         if (!user) {
-            controllerLogger.warn("User not found, aborting OTP validation", {
-                context: { userIdentifier: inputUserIdentifier },
-            });
+            controllerLogger.warn("User not found, aborting OTP validation");
             throw new AppError("Email tidak terdaftar", 404, "USER_NOT_FOUND");
         }
 

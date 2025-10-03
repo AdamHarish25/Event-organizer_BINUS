@@ -11,16 +11,15 @@ const notificationModel = (sequelize, DataTypes) => {
             },
             eventId: {
                 type: DataTypes.UUID,
-                allowNull: false,
+                allowNull: true,
                 references: {
                     model: "events",
                     key: "id",
                 },
-                onDelete: "CASCADE",
             },
             senderId: {
                 type: DataTypes.UUID,
-                allowNull: false,
+                allowNull: true,
                 references: {
                     model: "users",
                     key: "id",
@@ -28,7 +27,7 @@ const notificationModel = (sequelize, DataTypes) => {
             },
             recipientId: {
                 type: DataTypes.UUID,
-                allowNull: false,
+                allowNull: true,
                 references: {
                     model: "users",
                     key: "id",
@@ -43,16 +42,21 @@ const notificationModel = (sequelize, DataTypes) => {
                 allowNull: true,
             },
             notificationType: {
-                type: DataTypes.ENUM(
-                    "event_created",
-                    "event_updated",
-                    "event_deleted",
-                    "event_pending",
-                    "event_revised",
-                    "event_approved",
-                    "event_rejected"
-                ),
+                type: DataTypes.STRING(50),
                 allowNull: false,
+                validate: {
+                    isIn: [
+                        [
+                            "event_created",
+                            "event_updated",
+                            "event_deleted",
+                            "event_pending",
+                            "event_revised",
+                            "event_approved",
+                            "event_rejected",
+                        ],
+                    ],
+                },
             },
             isRead: {
                 type: DataTypes.BOOLEAN,
@@ -63,6 +67,7 @@ const notificationModel = (sequelize, DataTypes) => {
         {
             tableName: "notifications",
             timestamps: true,
+            paranoid: true,
             indexes: [
                 {
                     fields: ["recipientId"],
@@ -78,16 +83,19 @@ const notificationModel = (sequelize, DataTypes) => {
         Notification.belongsTo(models.Event, {
             foreignKey: "eventId",
             as: "event",
+            onDelete: "SET NULL",
         });
 
         Notification.belongsTo(models.User, {
             foreignKey: "senderId",
             as: "sender",
+            onDelete: "SET NULL",
         });
 
         Notification.belongsTo(models.User, {
             foreignKey: "recipientId",
             as: "recipient",
+            onDelete: "SET NULL",
         });
     };
 

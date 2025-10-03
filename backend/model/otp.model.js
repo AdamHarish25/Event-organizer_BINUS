@@ -18,6 +18,7 @@ const OTPModel = (sequelize, DataTypes) => {
                     model: "users",
                     key: "id",
                 },
+                onDelete: "CASCADE",
             },
             code: {
                 type: DataTypes.STRING,
@@ -33,11 +34,19 @@ const OTPModel = (sequelize, DataTypes) => {
             },
             valid: {
                 type: DataTypes.BOOLEAN,
-                defaultValue: false,
+                defaultValue: true,
             },
             attempt: {
                 type: DataTypes.INTEGER,
-                allowNull: false,
+                defaultValue: 0,
+            },
+            verifiedAt: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
+            invalidatedAt: {
+                type: DataTypes.DATE,
+                allowNull: true,
             },
         },
         {

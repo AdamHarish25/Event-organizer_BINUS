@@ -180,7 +180,7 @@ export const deleteEvent = async (req, res, next) => {
 
         res.status(200).json({
             status: "success",
-            message: "Event Successly Deleted",
+            message: "Event Successfully Deleted",
         });
     } catch (error) {
         const logLevel =

@@ -166,9 +166,12 @@ export const saveOTPToDatabase = async (
     const { OTPModel } = model;
 
     try {
-        logger.info("Saving new OTP to database process started");
+        logger.info("Saving new OTP to database process started", {
+            context: { userId },
+        });
 
         const otpHash = await bcrypt.hash(otp, OTP_CONFIG.BCRYPT_ROUNDS);
+        logger.info("OTP hashed successfully", { context: { userId } });
 
         const [updatedRows] = await OTPModel.update(
             { valid: false, invalidatedAt: new Date() },
@@ -186,22 +189,30 @@ export const saveOTPToDatabase = async (
         );
 
         if (updatedRows > 0) {
-            logger.info(
-                `Invalidated ${updatedRows} previous valid OTP(s) for the user`
-            );
+            logger.info("Invalidated previous valid OTP(s)", {
+                context: {
+                    count: updatedRows,
+                    userId: userId,
+                },
+            });
         }
 
         const expiresAt = new Date(
             Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
         );
+
+        logger.info("Creating new OTP record", {
+            context: {
+                userId,
+                expiresAt,
+                hasTransaction: !!transaction,
+            },
+        });
         const newOTP = await OTPModel.create(
             {
                 userId,
                 code: otpHash,
                 expiresAt,
-                attempt: 0,
-                valid: true,
-                verified: false,
             },
             { transaction }
         );
@@ -222,6 +233,7 @@ export const saveOTPToDatabase = async (
         logger.error(
             "An unexpected error occurred while saving OTP to database",
             {
+                context: { userId },
                 error: {
                     message: error.message,
                     stack: error.stack,

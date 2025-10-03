@@ -13,12 +13,11 @@ const eventModel = (sequelize, DataTypes) => {
             },
             creatorId: {
                 type: DataTypes.UUID,
-                allowNull: false,
+                allowNull: true,
                 references: {
                     model: "users",
                     key: "id",
                 },
-                onDelete: "CASCADE",
             },
             eventName: {
                 type: DataTypes.STRING(70),
@@ -90,6 +89,7 @@ const eventModel = (sequelize, DataTypes) => {
         Event.hasMany(models.Notification, {
             foreignKey: "eventId",
             as: "notifications",
+            onDelete: "SET NULL",
         });
     };
 
