@@ -307,7 +307,7 @@ export const editEvent = async (req, res, next) => {
         const logLevel =
             error.statusCode && error.statusCode < 500 ? "warn" : "error";
 
-        controllerLogger[logLevel](`Failed to update event: ${error.message}`, {
+        controllerLogger[logLevel](`Failed to update event:`, {
             context: { eventId: req.params.eventId },
             error: {
                 message: error.message,

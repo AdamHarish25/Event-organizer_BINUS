@@ -178,7 +178,15 @@ export const saveNewEventAndNotify = async (
     logger
 ) => {
     const { UserModel, EventModel, NotificationModel } = model;
-    const { eventName, date, startTime, endTime, location, speaker } = data;
+    const {
+        eventName,
+        date,
+        startTime,
+        endTime,
+        location,
+        speaker,
+        description,
+    } = data;
     const eventId = uuidv7();
     const { fullFolderPath, fileName } = generateEventAssetPaths(eventId);
 
@@ -244,6 +252,7 @@ export const saveNewEventAndNotify = async (
                     endTime,
                     location,
                     speaker,
+                    description,
                     status: "pending",
                     imageUrl: uploadResult.secure_url,
                     imagePublicId: uploadResult.public_id,
@@ -677,20 +686,28 @@ export const editEventService = async (
             }
             logger.info("Event found in database. Proceeding with update.");
 
-            const dataToUpdate = image
-                ? {
-                      ...data,
-                      imageUrl: uploadResult.secure_url,
-                      imagePublicId: uploadResult.public_id,
-                  }
-                : data;
+            const allowedUpdates = {
+                eventName: data.eventName,
+                date: data.date,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                location: data.location,
+                speaker: data.speaker,
+                description: data.description,
+            };
+
+            Object.keys(allowedUpdates).forEach(
+                (key) =>
+                    allowedUpdates[key] === undefined &&
+                    delete allowedUpdates[key]
+            );
 
             logger.info("Applying updates to event record", {
-                context: { eventId, updates: dataToUpdate },
+                context: { eventId, updates: allowedUpdates },
             });
 
             await event.update(
-                { ...dataToUpdate, status: "pending" },
+                { ...allowedUpdates, status: "pending" },
                 { transaction: t }
             );
 

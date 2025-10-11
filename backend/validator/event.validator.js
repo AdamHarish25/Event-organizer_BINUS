@@ -123,6 +123,11 @@ const baseEventSchema = Joi.object({
         "string.max": "Nama speaker maksimal 100 karakter.",
     }),
 
+    description: Joi.string().trim().allow("").max(5000).messages({
+        "string.base": "Deskripsi event harus berupa teks.",
+        "string.max": "Deskripsi event tidak boleh lebih dari 5,000 karakter.",
+    }),
+
     image: Joi.object({
         fieldname: Joi.string().required(),
         originalname: Joi.string().required(),

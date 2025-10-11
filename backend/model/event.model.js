@@ -43,6 +43,10 @@ const eventModel = (sequelize, DataTypes) => {
                 type: DataTypes.STRING(100),
                 allowNull: true,
             },
+            description: {
+                type: DataTypes.TEXT,
+                allowNull: false,
+            },
             status: {
                 type: DataTypes.ENUM(
                     "pending",
