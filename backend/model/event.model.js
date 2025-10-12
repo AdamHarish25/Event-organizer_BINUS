@@ -68,6 +68,10 @@ const eventModel = (sequelize, DataTypes) => {
                     isUrl: true,
                 },
             },
+            deletedAt: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
         },
         {
             tableName: "events",
