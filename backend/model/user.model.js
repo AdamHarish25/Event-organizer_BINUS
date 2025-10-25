@@ -44,6 +44,10 @@ const userModel = (sequelize, DataTypes) => {
                     len: [8, 64],
                 },
             },
+            deletedAt: {
+                type: DataTypes.DATE,
+                allowNull: true,
+            },
         },
         {
             tableName: "users",
