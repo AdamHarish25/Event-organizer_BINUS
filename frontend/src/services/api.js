@@ -1,41 +1,53 @@
-// src/services/api.js
-import axios from 'axios';
+import axios from "axios";
+import { showModalFromAnywhere } from "../Utils/modalHandler";
 
-const API_URL = 'http://localhost:5000'; 
+const BASE = "http://localhost:5000";
 
-const apiClient = axios.create({
-  baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' },
+const api = axios.create({
+  baseURL: BASE,
+  timeout: 15000,
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
+  // withCredentials: true, // uncomment only if backend uses cookie auth
 });
 
-apiClient.interceptors.request.use(
-  (config) => {
-    const userString = localStorage.getItem('user');
-    if (userString) {
-      // Pastikan nama properti token dari backend adalah 'accessToken'
-      const token = JSON.parse(userString)?.accessToken; 
-      if (token) {
-        config.headers['Authorization'] = 'Bearer ' + token;
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor for consistent error handling
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Standardize error response structure
-    if (error.response?.data) {
-      return Promise.reject(error.response.data);
-    }
-    return Promise.reject({
-      message: error.message || 'Network error occurred',
-      status: 'error'
-    });
+// Request: tambahkan Authorization jika ada token
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem("accessToken") || sessionStorage.getItem("accessToken");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch (e) {
+    // silent
   }
-);
+  return config;
+}, (err) => Promise.reject(err));
 
-export default apiClient;
+// Response: tampilkan modal dari backend message/warning dan tangani 401
+api.interceptors.response.use((res) => {
+  const data = res?.data || {};
+  // fleksibel cek message / warning / status
+  const message = data?.message || data?.warning || (typeof data === "string" ? data : null);
+  const isWarning = data?.status === "warning" || res.status === 206;
+  if (message && isWarning) {
+    showModalFromAnywhere({ title: "Peringatan", message: String(message), variant: "warning" });
+  }
+  return res;
+}, (err) => {
+  const resp = err.response;
+  const data = resp?.data;
+  if (data?.message) {
+    showModalFromAnywhere({ title: "Galat", message: String(data.message), variant: "error" });
+  } else if (resp?.status === 401) {
+    showModalFromAnywhere({ title: "Autentikasi", message: "Sesi berakhir. Silakan login ulang.", variant: "warning" });
+    // optional: remove token and redirect
+    try { localStorage.removeItem("accessToken"); } catch {}
+    // window.location.href = "/login"; // uncomment if you want auto-redirect
+  } else {
+    showModalFromAnywhere({ title: "Galat", message: "Terjadi kesalahan jaringan atau server.", variant: "error" });
+  }
+  return Promise.reject(err);
+});
+
+export default api;

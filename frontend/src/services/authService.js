@@ -5,23 +5,16 @@ import apiClient from './api';
  * Fungsi untuk melakukan login.
  * Menggunakan endpoint: POST /auth/login
  */
-const login = async (email, password) => {
-  try {
-    const response = await apiClient.post('/auth/login', {
-      email,
-      password,
-    });
-
-    // Backend returns: { message, userId, role, accessToken }
-    if (response.data.accessToken) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-    }
-
-    return response.data;
-  } catch (error) {
-    console.error("Login Error:", error.response?.data || error.message);
-    throw error;
+export const login = async ({ email, password }) => {
+  const payload = { email, password, deviceName: getDeviceName() };
+  const res = await apiClient.post("/auth/login", payload);
+  const parsed = parseLoginResponse(res);
+  if (parsed.accessToken) {
+    try {
+      localStorage.setItem("accessToken", parsed.accessToken);
+    } catch {}
   }
+  return parsed;
 };
 
 const register = async (registrationData) => {
@@ -34,23 +27,32 @@ const register = async (registrationData) => {
   }
 };
 
-const logout = async () => {
+export const logout = async () => {
   try {
-    await apiClient.post('/auth/logout');
-  } catch (error) {
-    console.error("Logout API call failed, but proceeding with client-side logout.", error);
-  } finally {
-    localStorage.removeItem('user');
-    window.location.href = '/';
+    await apiClient.post("/auth/logout"); // jika backend punya endpoint
+  } catch {}
+  try { localStorage.removeItem("accessToken"); } catch {}
+};
+
+
+const getDeviceName = () => {
+  try {
+    return (navigator.userAgent || "web-client").slice(0, 200);
+  } catch {
+    return "web-client";
   }
 };
 
-// --- TAMBAHAN: FUNGSI UNTUK RESET PASSWORD ---
+const parseLoginResponse = (res) => {
+  // backend bisa meletakkan token di berbagai tempat — handle beberapa kemungkinan
+  const d = res?.data || {};
+  return {
+    accessToken: d?.data?.accessToken || d?.accessToken || d?.token || null,
+    refreshToken: d?.data?.refreshToken || d?.refreshToken || null,
+    user: d?.data?.user || d?.user || d || null,
+  };
+};
 
-/**
- * Meminta OTP untuk reset password.
- * Menggunakan endpoint: POST /password/forgot-password
- */
 const forgotPassword = async (email) => {
   try {
     console.log('Sending forgot password request for email:', email);
