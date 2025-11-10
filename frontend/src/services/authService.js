@@ -5,16 +5,32 @@ import apiClient from './api';
  * Fungsi untuk melakukan login.
  * Menggunakan endpoint: POST /auth/login
  */
-export const login = async ({ email, password }) => {
-  const payload = { email, password, deviceName: getDeviceName() };
-  const res = await apiClient.post("/auth/login", payload);
-  const parsed = parseLoginResponse(res);
-  if (parsed.accessToken) {
-    try {
-      localStorage.setItem("accessToken", parsed.accessToken);
-    } catch {}
+const login = async (email, password) => {
+  try {
+    const response = await apiClient.post('/auth/login', {
+      email,
+      password,
+    });
+
+    // Backend returns: { message, user: {id, name, email, role}, accessToken }
+    if (response.data.accessToken && response.data.user) {
+      // Simpan data user dengan struktur yang konsisten
+      const userData = {
+        ...response.data.user,
+        accessToken: response.data.accessToken
+      };
+      localStorage.setItem('user', JSON.stringify(userData));
+      console.log('User data saved to localStorage:', userData);
+    }
+
+    return {
+      ...response.data.user,
+      accessToken: response.data.accessToken
+    };
+  } catch (error) {
+    console.error("Login Error:", error.response?.data || error.message);
+    throw error;
   }
-  return parsed;
 };
 
 const register = async (registrationData) => {
@@ -27,32 +43,23 @@ const register = async (registrationData) => {
   }
 };
 
-export const logout = async () => {
+const logout = async () => {
   try {
-    await apiClient.post("/auth/logout"); // jika backend punya endpoint
-  } catch {}
-  try { localStorage.removeItem("accessToken"); } catch {}
-};
-
-
-const getDeviceName = () => {
-  try {
-    return (navigator.userAgent || "web-client").slice(0, 200);
-  } catch {
-    return "web-client";
+    await apiClient.post('/auth/logout');
+  } catch (error) {
+    console.error("Logout API call failed, but proceeding with client-side logout.", error);
+  } finally {
+    localStorage.removeItem('user');
+    window.location.href = '/';
   }
 };
 
-const parseLoginResponse = (res) => {
-  // backend bisa meletakkan token di berbagai tempat — handle beberapa kemungkinan
-  const d = res?.data || {};
-  return {
-    accessToken: d?.data?.accessToken || d?.accessToken || d?.token || null,
-    refreshToken: d?.data?.refreshToken || d?.refreshToken || null,
-    user: d?.data?.user || d?.user || d || null,
-  };
-};
+// --- TAMBAHAN: FUNGSI UNTUK RESET PASSWORD ---
 
+/**
+ * Meminta OTP untuk reset password.
+ * Menggunakan endpoint: POST /password/forgot-password
+ */
 const forgotPassword = async (email) => {
   try {
     console.log('Sending forgot password request for email:', email);
@@ -113,16 +120,34 @@ const resetPassword = async (email, password, resetToken) => {
 // --- Helper Functions (Tidak ada perubahan) ---
 const getCurrentUser = () => {
   const userString = localStorage.getItem('user');
-  return userString ? JSON.parse(userString) : null;
+  if (!userString) {
+    console.log('No user data in localStorage');
+    return null;
+  }
+  
+  try {
+    const userData = JSON.parse(userString);
+    console.log('Current user data:', userData);
+    return userData;
+  } catch (error) {
+    console.error('Error parsing user data:', error);
+    localStorage.removeItem('user'); // Hapus data yang corrupt
+    return null;
+  }
 };
 
 const isAuthenticated = () => {
-  return !!getCurrentUser();
+  const user = getCurrentUser();
+  const hasToken = !!(user?.accessToken);
+  console.log('Authentication check:', { hasUser: !!user, hasToken });
+  return !!user && hasToken;
 };
 
 const getUserRole = () => {
   const user = getCurrentUser();
-  return user?.role || null;
+  const role = user?.role || null;
+  console.log('User role:', role);
+  return role;
 };
 
 const isAdmin = () => {

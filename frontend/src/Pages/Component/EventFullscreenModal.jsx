@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
-import { FaMapMarkerAlt, FaClock, FaCalendar, FaMicrophone } from "react-icons/fa";
+import { FaMapMarkerAlt, FaClock, FaCalendar, FaMicrophone, FaParagraph } from "react-icons/fa";
 
 const EventFullscreenModal = ({ events, isOpen, onClose, initialIndex = 0 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -121,6 +121,14 @@ const EventFullscreenModal = ({ events, isOpen, onClose, initialIndex = 0 }) => 
                 <div>
                   <p className="text-sm font-medium text-gray-500">Time</p>
                   <p className="text-lg font-semibold text-blue-600">{currentEvent.time}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 text-gray-600">
+                <FaParagraph className="text-orange-500 text-xl" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Description</p>
+                  <p className="text-lg font-semibold text-blue-600">{currentEvent.description}</p>
                 </div>
               </div>
             </div>

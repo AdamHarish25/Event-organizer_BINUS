@@ -245,7 +245,7 @@ const SuperAdminDashboard = () => {
   return (
     <div className="bg-gray-100 min-h-screen">
       <MainHeader pageTitle="SUPER ADMIN" />
-      <main className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <main className="p-8">
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-bold mb-4">Event Approval</h2>
           <div className="flex justify-between mb-4">
@@ -311,15 +311,6 @@ const SuperAdminDashboard = () => {
           )}
         </div>
         
-        <div className="p-6 rounded-lg">
-          {adminNotifLoading ? (
-            <p className="text-gray-500">Loading notifications...</p>
-          ) : adminNotifError ? (
-            <p className="text-red-500">{adminNotifError}</p>
-          ) : (
-            <FeedbackPanel feedbackList={adminNotifications} onFeedbackClick={handleAdminNotifClick} />
-          )}
-        </div>
       </main>
       <StatusModal
         isOpen={modal.type === 'status'}

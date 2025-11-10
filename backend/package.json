@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "test": "cross-env NODE_ENV=test jest --testTimeout=10000 --detectOpenHandles",
-        "dev": "nodemon index.js"
+        "dev": "nodemon server.js"
     },
     "repository": {
         "type": "git",

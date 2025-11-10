@@ -9,6 +9,7 @@ import { StatusModal } from '../Component/StatusModal';
 import { createEvent, editEvent, deleteEvent, getEvents } from '../../services/eventService';
 import notificationService from '../../services/notificationService';
 import socketService from '../../services/socketService';
+import EventDataDebug from '../../components/EventDataDebug';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -116,6 +117,7 @@ const AdminDashboard = () => {
       const term = searchTerm.toLowerCase();
       processed = processed.filter(e => (
         (e.eventName && e.eventName.toLowerCase().includes(term)) ||
+        (e.description && e.description.toLowerCase().includes(term)) ||
         (e.location && e.location.toLowerCase().includes(term)) ||
         (e.date && e.date.toLowerCase().includes(term)) ||
         (e.startTime && e.startTime.toLowerCase().includes(term)) ||
@@ -177,6 +179,7 @@ const AdminDashboard = () => {
           startTime: maybeEvent.startTime || '',
           endTime: maybeEvent.endTime || '',
           speaker: maybeEvent.speaker || '',
+          description: maybeEvent.description || '',
           imageUrl: maybeEvent.imageUrl || maybeEvent.image || undefined,
         };
       }
@@ -251,7 +254,7 @@ const AdminDashboard = () => {
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <input
               type="text"
-              placeholder="Search by event name..."
+              placeholder="Search by name, description, location..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full md:w-1/2 px-4 py-2 border rounded-lg"
@@ -327,6 +330,9 @@ const AdminDashboard = () => {
         message={modal.data?.message}
         variant={modal.data?.variant}
       />
+      
+      {/* Debug component - hapus di production */}
+      <EventDataDebug events={allEvents} title="Admin Events Data" />
     </div>
   );
 };

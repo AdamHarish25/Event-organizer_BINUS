@@ -8,17 +8,22 @@ function EventCard({ event, onFullscreen }) {
       <img 
         src={event.image || '/api/placeholder/400/300'} 
         alt={event.title} 
-        className="w-full h-40 object-cover"
+        className="w-full h-60 object-cover object-top"
         onError={(e) => {
           e.target.src = '/api/placeholder/400/300';
         }}
       />
-      <div className="p-4">
+      <div className="p-4 flex flex-col">
         <h3 className="text-lg font-semibold">{event.title}</h3>
-        <p className="text-gray-500">{event.location}</p>
-        <p className="text-sm text-gray-600">{event.speaker}</p>
-        <p className="text-sm text-gray-600">{event.date}</p>
-        <p className="text-sm text-blue-600 font-semibold">{event.time}</p>
+        {event.description && (
+          <p className="text-sm text-gray-700 mb-2 line-clamp-2 flex-1">{event.description}</p>
+        )}
+        <div className="space-y-1">
+          <p className="text-gray-500 text-sm">{event.location}</p>
+          <p className="text-sm text-gray-600">{event.speaker}</p>
+          <p className="text-sm text-gray-600">{event.date}</p>
+          <p className="text-sm text-blue-600 font-semibold">{event.time}</p>
+        </div>
       </div>
       <button
         onClick={onFullscreen}

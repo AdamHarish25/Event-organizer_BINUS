@@ -14,6 +14,7 @@ import { FaLocationPin } from "react-icons/fa6";
 import RealtimeClock from "./Component/realtime";
 import MainHeader from "./Component/MainHeader";
 import apiClient from "../services/api";
+import AuthDebug from "../components/AuthDebug";
 
 const DashboardUser = () => {
   const [currentEvents, setCurrentEvents] = useState([]);
@@ -77,6 +78,7 @@ const DashboardUser = () => {
   // Mapping data untuk EventCarousel
   const carouselData = currentEvents.map(event => ({
     title: event.eventName,
+    description: event.description,
     location: event.location,
     speaker: event.speaker,
     date: new Date(event.date).toLocaleDateString(),
@@ -100,7 +102,7 @@ const DashboardUser = () => {
       </div>
 
       <div className="px-5 md:px-10 xl:px-20 pt-5 bgDash grid place-items-center">
-        <div className="bg-white w-full h-full px-10 py-5 rounded-t-xl pb-10">
+        <div className="bg-white w-full h-full px-10 py-5 rounded-t-xl pb-10 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-2xl font-semibold">This Week</h1>
             <div className="flex items-center gap-4">
@@ -115,9 +117,12 @@ const DashboardUser = () => {
               // Gunakan state filteredThisWeek untuk me-render
               filteredThisWeek.map((event, index) => (
                 <li key={event.id} className={`p-4 ${index % 2 === 0 ? "bg-gray-50" : "bg-white"} flex items-center justify-between`}>
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold text-lg">{event.eventName}</p>
-                    <div className="flex items-center text-sm text-gray-600 space-x-3 mt-1">
+                    {event.description && (
+                      <p className="text-sm text-gray-700 mt-1 line-clamp-2">{event.description}</p>
+                    )}
+                    <div className="flex items-center text-sm text-gray-600 space-x-3 mt-2">
                       <span className="flex items-center">
                         <FaRegCalendarAlt className="mr-1" /> {new Date(event.date).toLocaleDateString()}
                       </span>
@@ -130,13 +135,6 @@ const DashboardUser = () => {
                       </span>
                     </div>
                   </div>
-                  <button onClick={() => toggleBookmark(event.id)}>
-                    {bookmarkedEvents.has(event.id) ? (
-                      <BsBookmarkFill className="text-blue-500" />
-                    ) : (
-                      <BsBookmark className="text-gray-500" />
-                    )}
-                  </button>
                 </li>
               ))
             ) : (
@@ -145,23 +143,26 @@ const DashboardUser = () => {
           </ul>
 
           <h1 className="text-2xl font-semibold mt-10 mb-5">Next Events</h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 w-full min-h-[400px] h-full">
             {nextEvents.slice(0, 4).map((event) => (
               <div
                 key={event.id + "-next"}
-                className="space-y-5 py-5 pl-5 pr-20 border-2 border-gray-500 rounded-lg h-full"
+                className="space-y-3 py-5 pl-5 pr-5 border-2 border-gray-500 rounded-lg h-full flex flex-col"
               >
                 <h1 className="text-xl font-semibold">{event.eventName}</h1>
-                <div>
-                  <p className="space-x-2 flex items-center">
+                {event.description && (
+                  <p className="text-sm text-gray-600 line-clamp-3 flex-1">{event.description}</p>
+                )}
+                <div className="space-y-1">
+                  <p className="space-x-2 flex items-center text-sm">
                     <FaClock className="text-[#EC6A37]"/>
                     <span>{`${event.startTime} - ${event.endTime}`}</span>
                   </p>
-                  <p className="space-x-2 flex items-center">
+                  <p className="space-x-2 flex items-center text-sm">
                     <FaCalendar className="text-[#3F88BC]"/>
                     <span>{new Date(event.date).toLocaleDateString()}</span>
                   </p>
-                  <p className="space-x-2 flex items-center">
+                  <p className="space-x-2 flex items-center text-sm">
                     <FaLocationPin className="text-[#D9242A]"/>
                     <span>{event.location}</span>
                   </p>
@@ -174,6 +175,7 @@ const DashboardUser = () => {
       <div className="w-full h-fit px-10 py-5 bg-[#F3F3F3] text-right">
         <p className="text-gray-600">Universitas Bina Nusantara Bekasi 2023</p>
       </div>
+      
     </div>
   );
 };

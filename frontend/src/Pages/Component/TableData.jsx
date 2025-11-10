@@ -17,6 +17,7 @@ const MyEventsTable = ({ events, onEdit, onDelete, onNotify }) => {
         <thead className="bg-gray-50">
           <tr>
             <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Name</th>
+            <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Description</th>
             <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Date</th>
             <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Location</th>
             <th className="py-3 px-6 text-center text-sm font-semibold text-gray-600">Status</th>
@@ -27,6 +28,11 @@ const MyEventsTable = ({ events, onEdit, onDelete, onNotify }) => {
           {events.map((event) => (
             <tr key={event.id} className="hover:bg-gray-50">
               <td className="py-4 px-6 text-gray-800 font-medium">{event.eventName}</td>
+              <td className="py-4 px-6 text-gray-600 max-w-xs">
+                <div className="line-clamp-2 text-sm">
+                  {event.description || 'No description'}
+                </div>
+              </td>
               <td className="py-4 px-6 text-gray-600">{event.date}</td>
               <td className="py-4 px-6 text-gray-600">{event.location}</td>
               <td className="py-4 px-6 text-center">

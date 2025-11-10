@@ -39,8 +39,8 @@ const MainHeader = ({ pageTitle }) => {
 
       <div className="flex items-center justify-end gap-5">
         <div className="text-right">
-          <h1 className="text-lg font-semibold">{currentUser?.role?.replace('_', ' ') || 'User'}</h1>
-          <p className="text-sm text-gray-500">ID: {currentUser?.userId || 'N/A'}</p>
+          <h1 className="text-lg font-semibold">{currentUser?.name || `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim() || 'User'}</h1>
+          <p className="text-sm text-gray-500">{currentUser?.role?.replace('_', ' ').toUpperCase() || 'STUDENT'}</p>
         </div>
         <img src={currentUser?.avatar || avatar} alt={currentUser?.role || 'User'} className="w-10 h-10 rounded-full object-cover" />
 

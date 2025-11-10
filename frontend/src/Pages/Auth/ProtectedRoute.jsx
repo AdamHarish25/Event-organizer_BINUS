@@ -6,7 +6,6 @@ import authService from '../../services/authService';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { loading } = useAuth();
-
   const location = useLocation();
 
   if (loading) {
@@ -17,14 +16,27 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     );
   }
 
-  if (!authService.isAuthenticated()) {
+  const isAuthenticated = authService.isAuthenticated();
+  const userRole = authService.getUserRole();
+  
+  console.log('ProtectedRoute Debug:', {
+    isAuthenticated,
+    userRole,
+    allowedRoles,
+    currentPath: location.pathname
+  });
+
+  if (!isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(authService.getUserRole())) {
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
+    console.log(`Access denied. User role '${userRole}' not in allowed roles:`, allowedRoles);
     return <Navigate to="/unauthorized" replace />;
   }
 
+  console.log('Access granted for user role:', userRole);
   return children;
 };
 
