@@ -27,6 +27,7 @@ export const getCategorizedEventsService = async ({ EventModel, logger }) => {
             attributes: [
                 "id",
                 "eventName",
+                "description",
                 "date",
                 "startTime",
                 "endTime",
