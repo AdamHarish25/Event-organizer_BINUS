@@ -14,7 +14,7 @@ import { FaLocationPin } from "react-icons/fa6";
 import RealtimeClock from "./Component/realtime";
 import MainHeader from "./Component/MainHeader";
 import apiClient from "../services/api";
-import AuthDebug from "../components/AuthDebug";
+
 
 const DashboardUser = () => {
   const [currentEvents, setCurrentEvents] = useState([]);

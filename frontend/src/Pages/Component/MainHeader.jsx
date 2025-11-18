@@ -9,8 +9,7 @@ const MainHeader = ({ pageTitle }) => {
   // Fallback to localStorage if context user is null
   const currentUser = user || JSON.parse(localStorage.getItem('user') || 'null');
   
-  console.log("User from context:", user);
-  console.log("User from localStorage:", currentUser);
+
 
   // Jika user tidak ada, tampilkan header default tanpa info user
   if (!currentUser) {

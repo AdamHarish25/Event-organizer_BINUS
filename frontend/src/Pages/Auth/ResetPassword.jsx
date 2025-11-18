@@ -48,13 +48,10 @@ const ResetPassword = () => {
     
     setLoading(true);
     try {
-      console.log('Attempting to reset password for email:', email, 'with token:', token);
       const res = await authService.resetPassword(email, password, token);
-      console.log('Reset password response:', res);
       setMessage(res.message || 'Password berhasil direset.');
       setTimeout(() => navigate('/login/admin'), 1000);
     } catch (err) {
-      console.error('Reset password error in component:', err);
       const msg = err?.message || err?.error || 'Gagal reset password.';
       setError(typeof msg === 'string' ? msg : 'Gagal reset password.');
     } finally {

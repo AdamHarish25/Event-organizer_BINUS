@@ -9,7 +9,7 @@ import { StatusModal } from '../Component/StatusModal';
 import { createEvent, editEvent, deleteEvent, getEvents } from '../../services/eventService';
 import notificationService from '../../services/notificationService';
 import socketService from '../../services/socketService';
-import EventDataDebug from '../../components/EventDataDebug';
+
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -51,7 +51,7 @@ const AdminDashboard = () => {
       
       // Listen for new notifications
       const handleNewNotification = (notification) => {
-        console.log('New notification received:', notification);
+
         // Add new notification to the top of the list
         setNotifications(prev => [notification, ...prev]);
         
@@ -330,9 +330,7 @@ const AdminDashboard = () => {
         message={modal.data?.message}
         variant={modal.data?.variant}
       />
-      
-      {/* Debug component - hapus di production */}
-      <EventDataDebug events={allEvents} title="Admin Events Data" />
+
     </div>
   );
 };

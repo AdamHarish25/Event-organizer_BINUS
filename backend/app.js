@@ -30,19 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Request logging middleware untuk debugging
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    console.log('Headers:', {
-        authorization: req.headers.authorization ? `Bearer ${req.headers.authorization.split(' ')[1]?.substring(0, 20)}...` : 'None',
-        'user-agent': req.headers['user-agent']?.substring(0, 50) + '...',
-        origin: req.headers.origin || 'None'
-    });
-    if (req.body && Object.keys(req.body).length > 0) {
-        console.log('Body keys:', Object.keys(req.body));
-    }
-    next();
-});
+
 
 const options = {
     definition: {

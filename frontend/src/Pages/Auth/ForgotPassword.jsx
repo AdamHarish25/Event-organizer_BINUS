@@ -29,20 +29,11 @@ const ForgotPassword = () => {
     setLoading(true);
     
     try {
-      console.log('Attempting to send OTP for email:', email);
       const res = await authService.forgotPassword(email);
-      console.log('Forgot password response:', res);
       setMessage(res.message || 'Kode OTP telah dikirim ke email Anda.');
       // Lanjut ke halaman OTP dengan membawa email
       setTimeout(() => navigate(`/verify-otp?email=${encodeURIComponent(email)}`), 800);
     } catch (err) {
-      console.error('Forgot password error in component:', err);
-      console.error('Error details:', {
-        message: err?.message,
-        error: err?.error,
-        status: err?.status,
-        response: err?.response
-      });
       const msg = err?.message || err?.error || 'Gagal mengirim OTP.';
       setError(typeof msg === 'string' ? msg : 'Gagal mengirim OTP.');
     } finally {
