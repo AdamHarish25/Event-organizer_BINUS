@@ -432,7 +432,8 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
                 notificationType: "event_deleted",
                 payload: {
                     eventName: eventDataForCleanupAndNotify.eventName,
-                    time: eventDataForCleanupAndNotify.time,
+                    startTime: eventDataForCleanupAndNotify.startTime,
+                    endTime: eventDataForCleanupAndNotify.endTime,
                     date: eventDataForCleanupAndNotify.date,
                     location: eventDataForCleanupAndNotify.location,
                     speaker: eventDataForCleanupAndNotify.speaker,
@@ -576,7 +577,8 @@ export const sendFeedback = async (
                 feedback,
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -720,7 +722,12 @@ export const editEventService = async (
                 transaction: t,
             });
 
-            const updatedPayloadData = { ...event.dataValues, ...dataToUpdate };
+            const updatedPayloadData = { ...event.dataValues };
+
+            console.log("Event.DataValuesnya adalah: ", event.dataValues);
+            console.log("Allowed Updatesnya adalah: ", allowedUpdates);
+
+            console.log("Hasil Payload datanya adalah : ", updatedPayloadData);
             const notifications = superAdmins.map((superAdmin) => ({
                 eventId: event.id,
                 senderId: adminId,
@@ -728,7 +735,8 @@ export const editEventService = async (
                 notificationType: "event_updated",
                 payload: {
                     eventName: updatedPayloadData.eventName,
-                    time: updatedPayloadData.time,
+                    startTime: updatedPayloadData.startTime,
+                    endTime: updatedPayloadData.endTime,
                     date: updatedPayloadData.date,
                     location: updatedPayloadData.location,
                     speaker: updatedPayloadData.speaker,
@@ -743,7 +751,8 @@ export const editEventService = async (
                 notificationType: "event_pending",
                 payload: {
                     eventName: updatedPayloadData.eventName,
-                    time: updatedPayloadData.time,
+                    startTime: updatedPayloadData.startTime,
+                    endTime: updatedPayloadData.endTime,
                     date: updatedPayloadData.date,
                     location: updatedPayloadData.location,
                     speaker: updatedPayloadData.speaker,
@@ -871,7 +880,8 @@ export const rejectEventService = async (
                 feedback,
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -971,7 +981,8 @@ export const approveEventService = async (
                 notificationType: "event_approved",
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
