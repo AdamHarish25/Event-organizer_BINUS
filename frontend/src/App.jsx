@@ -47,10 +47,13 @@ function App() {
         <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['student']}><DashboardUser /></ProtectedRoute>} />
+        {/* <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['student']}><DashboardUser /></ProtectedRoute>} />
         <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/superadmin/dashboard" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
+        <Route path="/superadmin/dashboard" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} /> */}
 
+        <Route path="/dashboard" element={<DashboardUser />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
         
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="*" element={<div className='flex items-center justify-center h-screen'><h1 className='text-4xl font-bold'>404 - Halaman Tidak Ditemukan</h1></div>} />
