@@ -27,4 +27,14 @@ Object.values(db).forEach((model) => {
     }
 });
 
+export const {
+    User,
+    Event,
+    RefreshToken,
+    BlacklistedToken,
+    ResetToken,
+    OTP,
+    Notification,
+} = db;
+
 export default db;

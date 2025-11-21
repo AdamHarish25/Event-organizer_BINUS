@@ -7,20 +7,19 @@ import { sendOTPEmail } from "../utils/emailSender.js";
 import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
-import db from "../model/index.js";
+import { User, RefreshToken, BlacklistedToken } from "../model/index.js";
 
 const BCRPT_SALT_ROUDS = 10;
 const FIVETEEN_MINUTES = 15 * 60 * 1000;
 
 dotenv.config({ path: "../.env" });
 
-export const handleUserLogin = async (data, model, deviceName, loginLogger) => {
+export const handleUserLogin = async (data, deviceName, loginLogger) => {
     try {
         const { email, password } = data;
-        const { UserModel, RefreshTokenModel } = model;
 
         loginLogger.info("Attempting to find user in database", { email });
-        const user = await UserModel.findOne({ where: { email } });
+        const user = await User.findOne({ where: { email } });
 
         if (!user) {
             loginLogger.warn("Login failed: User not found in database", {
@@ -58,10 +57,10 @@ export const handleUserLogin = async (data, model, deviceName, loginLogger) => {
         await saveNewRefreshToken(
             user.id,
             refreshToken,
-            RefreshTokenModel,
             deviceName,
             loginLogger
         );
+
         loginLogger.info("New refresh token saved successfully", {
             userId: user.id,
             deviceName,
@@ -99,13 +98,12 @@ export const handleUserLogin = async (data, model, deviceName, loginLogger) => {
     }
 };
 
-export const handleUserLogout = async (token, model, userId, logoutLogger) => {
+export const handleUserLogout = async (token, userId, logoutLogger) => {
     try {
-        const { RefreshTokenModel, BlacklistedTokenModel } = model;
         const { accessTokenFromUser, refreshTokenFromUser } = token;
 
         logoutLogger.info("Searching for active refresh tokens in database");
-        const allRefreshTokenFromDB = await RefreshTokenModel.findAll({
+        const allRefreshTokenFromDB = await RefreshToken.findAll({
             where: { ownerId: userId, isRevoked: false },
         });
 
@@ -149,7 +147,7 @@ export const handleUserLogout = async (token, model, userId, logoutLogger) => {
             "Matching refresh token found. Proceeding to revoke."
         );
 
-        await RefreshTokenModel.update(
+        await RefreshToken.update(
             { isRevoked: true },
             { where: { ownerId: userId, token: theRightRefreshToken } }
         );
@@ -160,7 +158,7 @@ export const handleUserLogout = async (token, model, userId, logoutLogger) => {
             BCRPT_SALT_ROUDS
         );
 
-        await BlacklistedTokenModel.create({
+        await BlacklistedToken.create({
             token: hashedToken,
             userId,
             reason: "logout",

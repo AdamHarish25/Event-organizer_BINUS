@@ -6,7 +6,6 @@ import extractDeviceInfo from "../utils/deviceInfo.js";
 import { renewAccessToken } from "../service/token.service.js";
 import { handleUserLogin, handleUserLogout } from "../service/auth.service.js";
 import logger from "../utils/logger.js";
-import AppError from "../utils/AppError.js";
 
 const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
@@ -76,10 +75,6 @@ export const login = async (req, res, next) => {
 
     try {
         const data = { email: req.body.email, password: req.body.password };
-        const model = {
-            UserModel: db.User,
-            RefreshTokenModel: db.RefreshToken,
-        };
         const { deviceName } = extractDeviceInfo(req);
 
         loginLogger.info("Login attempt started", {
@@ -89,7 +84,6 @@ export const login = async (req, res, next) => {
 
         const { user, accessToken, refreshToken } = await handleUserLogin(
             data,
-            model,
             deviceName,
             loginLogger
         );
@@ -108,7 +102,7 @@ export const login = async (req, res, next) => {
         });
 
         res.status(200).json({
-            message: "Login Success !",
+            message: "Login successful",
             user,
             accessToken,
         });
@@ -145,16 +139,12 @@ export const logout = async (req, res, next) => {
         const accessToken = req.headers.authorization.split(" ")[1];
         const refreshToken = req.cookies.refreshToken;
 
-        const model = {
-            RefreshTokenModel: db.RefreshToken,
-            BlacklistedTokenModel: db.BlacklistedToken,
-        };
         const token = {
             accessTokenFromUser: accessToken,
             refreshTokenFromUser: refreshToken,
         };
 
-        await handleUserLogout(token, model, user.id, logoutLogger);
+        await handleUserLogout(token, user.id, logoutLogger);
 
         res.clearCookie("refreshToken", {
             httpOnly: true,
@@ -192,12 +182,9 @@ export const refreshAccessToken = async (req, res, next) => {
     try {
         refreshTokenLogger.info("Access token refresh process initiated");
 
-        const model = { RefreshTokenModel: db.RefreshToken };
         const oldRefreshToken = req.cookies.refreshToken;
-
         const { newAccessToken, newRefreshToken } = await renewAccessToken(
             user,
-            model,
             oldRefreshToken,
             refreshTokenLogger
         );
