@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import getToken from "../utils/getToken.js";
 import AppError from "../utils/AppError.js";
-import { RefreshToken } from "../model/index.js";
+import { RefreshToken, ResetToken } from "../model/index.js";
 
 const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
@@ -175,11 +175,9 @@ export const renewAccessToken = async (
     }
 };
 
-export const saveResetTokenToDatabase = async (user, resetToken, model) => {
-    const { ResetTokenModel } = model;
-
+export const saveResetTokenToDatabase = async (user, resetToken) => {
     const hashedResetToken = await bcrypt.hash(resetToken, 10);
-    await ResetTokenModel.create({
+    await ResetToken.create({
         userId: user.id,
         token: hashedResetToken,
         expiresAt: Date.now() + 5 * 60 * 1000,
