@@ -7,16 +7,14 @@ import { sendOTPEmail } from "../utils/emailSender.js";
 import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
+import { User, ResetToken } from "../model/index.js";
 import {
-    User,
-    RefreshToken,
-    BlacklistedToken,
-    ResetToken,
-} from "../model/index.js";
+    blacklistAccessToken,
+    revokeRefreshToken,
+} from "../service/token.service.js";
 import { sequelize } from "../config/dbconfig.js";
 
 const BCRPT_SALT_ROUDS = 10;
-const FIVETEEN_MINUTES = 15 * 60 * 1000;
 
 dotenv.config({ path: "../.env" });
 
@@ -105,94 +103,17 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
 };
 
 export const handleUserLogout = async (token, userId, logoutLogger) => {
-    try {
-        const { accessTokenFromUser, refreshTokenFromUser } = token;
+    const accessTokenFromUser = token?.accessTokenFromUser ?? null;
+    const refreshTokenFromUser = token?.refreshTokenFromUser ?? null;
 
-        logoutLogger.info("Searching for active refresh tokens in database");
-        const allRefreshTokenFromDB = await RefreshToken.findAll({
-            where: { ownerId: userId, isRevoked: false },
-        });
+    logoutLogger.info("Starting logout process...");
 
-        if (!allRefreshTokenFromDB || allRefreshTokenFromDB.length === 0) {
-            logoutLogger.warn(
-                "Logout failed: No active refresh tokens found for user"
-            );
-            throw new AppError(
-                "Sesi tidak valid atau sudah logout.",
-                404,
-                "REFRESH_TOKEN_NOT_FOUND"
-            );
-        }
-        logoutLogger.info(
-            `Found ${allRefreshTokenFromDB.length} active refresh token(s). Starting comparison.`
-        );
+    await Promise.allSettled([
+        blacklistAccessToken(accessTokenFromUser, userId, logoutLogger),
+        revokeRefreshToken(refreshTokenFromUser, userId, logoutLogger),
+    ]);
 
-        let theRightRefreshToken;
-        for (const tokenRecord of allRefreshTokenFromDB) {
-            const isMatch = await bcrypt.compare(
-                refreshTokenFromUser,
-                tokenRecord.token
-            );
-            if (isMatch) {
-                theRightRefreshToken = tokenRecord.token;
-                break;
-            }
-        }
-
-        if (!theRightRefreshToken) {
-            logoutLogger.warn(
-                "Logout failed: Provided refresh token did not match any stored tokens for user"
-            );
-            throw new AppError(
-                "Sesi tidak valid.",
-                401,
-                "REFRESH_TOKEN_MISMATCH"
-            );
-        }
-        logoutLogger.info(
-            "Matching refresh token found. Proceeding to revoke."
-        );
-
-        await RefreshToken.update(
-            { isRevoked: true },
-            { where: { ownerId: userId, token: theRightRefreshToken } }
-        );
-        logoutLogger.info("Refresh token successfully revoked in database");
-
-        const hashedToken = await bcrypt.hash(
-            accessTokenFromUser,
-            BCRPT_SALT_ROUDS
-        );
-
-        await BlacklistedToken.create({
-            token: hashedToken,
-            userId,
-            reason: "logout",
-            expiresAt: new Date(Date.now() + FIVETEEN_MINUTES),
-        });
-        logoutLogger.info("Access token successfully added to blacklist");
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-
-        logoutLogger.error(
-            "An unexpected error occurred in handleUserLogout service",
-            {
-                error: {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                },
-            }
-        );
-
-        throw new AppError(
-            "Gagal melakukan logout karena masalah internal.",
-            500,
-            "INTERNAL_SERVER_ERROR"
-        );
-    }
+    logoutLogger.info("Logout process completed.");
 };
 
 export const requestPasswordReset = async (email, logger) => {

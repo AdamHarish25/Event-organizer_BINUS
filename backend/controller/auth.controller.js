@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import { uuidv7 } from "uuidv7";
+import dotenv from "dotenv";
 
 import db from "../model/index.js";
 import extractDeviceInfo from "../utils/deviceInfo.js";
@@ -7,6 +8,7 @@ import { renewAccessToken } from "../service/token.service.js";
 import { handleUserLogin, handleUserLogout } from "../service/auth.service.js";
 import logger from "../utils/logger.js";
 
+dotenv.config();
 const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
 export const register = async (req, res, next) => {
@@ -125,26 +127,31 @@ export const login = async (req, res, next) => {
 };
 
 export const logout = async (req, res, next) => {
-    const { correlationId, user } = req;
+    const { correlationId, user = null } = req;
 
     const logoutLogger = logger.child({
         correlationId,
         source: "AuthController.logout",
-        userId: user.id,
+        userId: user?.id ?? "anonymous",
     });
 
     try {
         logoutLogger.info("Logout process initiated");
 
-        const accessToken = req.headers.authorization.split(" ")[1];
-        const refreshToken = req.cookies.refreshToken;
+        const authHeader = req.headers?.authorization;
+        const accessToken = authHeader?.startsWith("Bearer ")
+            ? authHeader.substring(7)
+            : null;
+        const refreshToken = req.cookies?.refreshToken ?? null;
 
         const token = {
             accessTokenFromUser: accessToken,
             refreshTokenFromUser: refreshToken,
         };
 
-        await handleUserLogout(token, user.id, logoutLogger);
+        if (accessToken || refreshToken) {
+            await handleUserLogout(token, user?.id, logoutLogger);
+        }
 
         res.clearCookie("refreshToken", {
             httpOnly: true,
@@ -159,15 +166,23 @@ export const logout = async (req, res, next) => {
             message: "Logout Successfully.",
         });
     } catch (error) {
-        logoutLogger.error("Logout process failed", {
+        logoutLogger.error("Logout controller encountered unexpected error", {
             error: {
                 message: error.message,
                 stack: error.stack,
-                name: error.name,
-                statusCode: error.statusCode,
             },
         });
-        next(error);
+
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/",
+        });
+
+        return res.status(200).json({
+            message: "Logout Successfully (Fallback).",
+        });
     }
 };
 
