@@ -217,9 +217,10 @@ router.post("/login", schemaValidator({ body: loginValidatorSchema }), login);
  */
 router.post(
     "/logout",
-    accessTokenValidator(ACCESS_JWT_SECRET),
-    authenticateBlacklistedToken,
-    refreshTokenValidator(REFRESH_JWT_SECRET),
+    accessTokenValidator(ACCESS_JWT_SECRET, {
+        ignoreExpiration: true,
+        failSilently: true,
+    }),
     logout
 );
 

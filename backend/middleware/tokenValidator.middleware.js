@@ -3,7 +3,12 @@ import { uuidv7 } from "uuidv7";
 import AppError from "../utils/AppError.js";
 import logger from "../utils/logger.js";
 
-export function parseAndVerifyToken({ token, type, secretKey }) {
+export function parseAndVerifyToken({
+    token,
+    type,
+    secretKey,
+    ignoreExpiration = false,
+}) {
     if (!token) {
         const errorCode =
             {
@@ -15,7 +20,7 @@ export function parseAndVerifyToken({ token, type, secretKey }) {
     }
 
     try {
-        return jwt.verify(token, secretKey);
+        return jwt.verify(token, secretKey, { ignoreExpiration });
     } catch (error) {
         let errorMessage = "Token tidak valid.";
         if (error.name === "TokenExpiredError") {
@@ -27,20 +32,23 @@ export function parseAndVerifyToken({ token, type, secretKey }) {
     }
 }
 
-export const accessTokenValidator = (secretKey) => {
+export const accessTokenValidator = (secretKey, options = {}) => {
     return (req, res, next) => {
         const correlationId =
             req.correlationId || req.headers["x-correlation-id"] || uuidv7();
         req.correlationId = correlationId;
 
         try {
-            const authHeader = req.headers.authorization;
-            const accessToken = authHeader ? authHeader.split(" ")[1] : null;
+            const authHeader = req.headers?.authorization;
+            const accessToken = authHeader?.startsWith("Bearer ")
+                ? authHeader.substring(7)
+                : null;
 
             const decoded = parseAndVerifyToken({
                 token: accessToken,
                 type: "accessToken",
                 secretKey,
+                ignoreExpiration: options.ignoreExpiration,
             });
 
             req.user = decoded;
@@ -62,6 +70,12 @@ export const accessTokenValidator = (secretKey) => {
                     },
                 },
             });
+
+            if (options.failSilently) {
+                req.user = null;
+                return next();
+            }
+
             next(error);
         }
     };
