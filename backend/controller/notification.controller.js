@@ -2,7 +2,6 @@ import {
     getNotificationService,
     markAsReadService,
 } from "../service/notification.service.js";
-import db from "../model/index.js";
 import logger from "../utils/logger.js";
 
 export const getNotification = async (req, res, next) => {
@@ -25,7 +24,6 @@ export const getNotification = async (req, res, next) => {
             user.id,
             page,
             limit,
-            db.Notification,
             controllerLogger
         );
 
@@ -74,12 +72,7 @@ export const markAsRead = async (req, res, next) => {
     try {
         controllerLogger.info("Mark notification as read process initiated");
 
-        await markAsReadService(
-            notificationId,
-            user.id,
-            db.Notification,
-            controllerLogger
-        );
+        await markAsReadService(notificationId, user.id, controllerLogger);
 
         controllerLogger.info("Notification marked as read successfully");
 
