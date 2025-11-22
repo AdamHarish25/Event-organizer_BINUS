@@ -7,20 +7,25 @@ import { sendOTPEmail } from "../utils/emailSender.js";
 import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
-import db from "../model/index.js";
+import {
+    User,
+    RefreshToken,
+    BlacklistedToken,
+    ResetToken,
+} from "../model/index.js";
+import { sequelize } from "../config/dbconfig.js";
 
 const BCRPT_SALT_ROUDS = 10;
 const FIVETEEN_MINUTES = 15 * 60 * 1000;
 
 dotenv.config({ path: "../.env" });
 
-export const handleUserLogin = async (data, model, deviceName, loginLogger) => {
+export const handleUserLogin = async (data, deviceName, loginLogger) => {
     try {
         const { email, password } = data;
-        const { UserModel, RefreshTokenModel } = model;
 
         loginLogger.info("Attempting to find user in database", { email });
-        const user = await UserModel.findOne({ where: { email } });
+        const user = await User.findOne({ where: { email } });
 
         if (!user) {
             loginLogger.warn("Login failed: User not found in database", {
@@ -58,10 +63,10 @@ export const handleUserLogin = async (data, model, deviceName, loginLogger) => {
         await saveNewRefreshToken(
             user.id,
             refreshToken,
-            RefreshTokenModel,
             deviceName,
             loginLogger
         );
+
         loginLogger.info("New refresh token saved successfully", {
             userId: user.id,
             deviceName,
@@ -99,13 +104,12 @@ export const handleUserLogin = async (data, model, deviceName, loginLogger) => {
     }
 };
 
-export const handleUserLogout = async (token, model, userId, logoutLogger) => {
+export const handleUserLogout = async (token, userId, logoutLogger) => {
     try {
-        const { RefreshTokenModel, BlacklistedTokenModel } = model;
         const { accessTokenFromUser, refreshTokenFromUser } = token;
 
         logoutLogger.info("Searching for active refresh tokens in database");
-        const allRefreshTokenFromDB = await RefreshTokenModel.findAll({
+        const allRefreshTokenFromDB = await RefreshToken.findAll({
             where: { ownerId: userId, isRevoked: false },
         });
 
@@ -149,7 +153,7 @@ export const handleUserLogout = async (token, model, userId, logoutLogger) => {
             "Matching refresh token found. Proceeding to revoke."
         );
 
-        await RefreshTokenModel.update(
+        await RefreshToken.update(
             { isRevoked: true },
             { where: { ownerId: userId, token: theRightRefreshToken } }
         );
@@ -160,7 +164,7 @@ export const handleUserLogout = async (token, model, userId, logoutLogger) => {
             BCRPT_SALT_ROUDS
         );
 
-        await BlacklistedTokenModel.create({
+        await BlacklistedToken.create({
             token: hashedToken,
             userId,
             reason: "logout",
@@ -191,14 +195,11 @@ export const handleUserLogout = async (token, model, userId, logoutLogger) => {
     }
 };
 
-export const requestPasswordReset = async (email, model, logger) => {
+export const requestPasswordReset = async (email, logger) => {
     try {
-        const { sequelize } = db;
-        const { UserModel } = model;
-
         logger.info("Forgot password process started in service");
 
-        const user = await UserModel.findOne({ where: { email } });
+        const user = await User.findOne({ where: { email } });
         if (!user) {
             logger.warn("Password reset requested for a non-existent email");
             throw new AppError("Email tidak terdaftar", 404, "USER_NOT_FOUND");
@@ -319,7 +320,7 @@ export const requestPasswordReset = async (email, model, logger) => {
 
         logger.info("Starting database transaction to save OTP and send email");
         await sequelize.transaction(async (transaction) => {
-            await saveOTPToDatabase(user.id, otp, model, transaction, logger);
+            await saveOTPToDatabase(user.id, otp, transaction, logger);
             logger.info("OTP successfully saved to database");
 
             await sendOTPEmail(mailOptions, email, logger);
@@ -361,16 +362,13 @@ export const requestPasswordReset = async (email, model, logger) => {
 export const resetPasswordHandler = async (
     user,
     newPassword,
-    model,
     resetToken,
     logger
 ) => {
     try {
-        const { UserModel, ResetTokenModel } = model;
-
         logger.info("Password reset handling process started in service");
 
-        const tokenRecords = await ResetTokenModel.findAll({
+        const tokenRecords = await ResetToken.findAll({
             where: { userId: user.id, verified: false },
         });
 
@@ -416,14 +414,14 @@ export const resetPasswordHandler = async (
             BCRPT_SALT_ROUDS
         );
 
-        await db.sequelize.transaction(async (t) => {
-            await UserModel.update(
+        await sequelize.transaction(async (t) => {
+            await User.update(
                 { password: hashedNewPassword },
                 { where: { id: user.id }, transaction: t }
             );
             logger.info("User password record has been updated successfully");
 
-            await ResetTokenModel.destroy({
+            await ResetToken.destroy({
                 where: { userId: user.id },
                 transaction: t,
             });

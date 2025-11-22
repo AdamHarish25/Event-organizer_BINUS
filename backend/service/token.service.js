@@ -1,13 +1,13 @@
 import bcrypt from "bcrypt";
 import getToken from "../utils/getToken.js";
 import AppError from "../utils/AppError.js";
+import { RefreshToken, ResetToken } from "../model/index.js";
 
 const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
 export const saveNewRefreshToken = async (
     userId,
     newRefreshToken,
-    RefreshTokenModel,
     deviceName,
     loginLogger
 ) => {
@@ -15,7 +15,7 @@ export const saveNewRefreshToken = async (
         loginLogger.info("Starting process to save new refresh token");
 
         const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
-        const userRefreshTokens = await RefreshTokenModel.findAll({
+        const userRefreshTokens = await RefreshToken.findAll({
             where: { ownerId: userId },
             order: [["expiresAt", "ASC"]],
         });
@@ -38,14 +38,14 @@ export const saveNewRefreshToken = async (
                 "Reusing a previously revoked token record to save the new token",
                 { tokenId: revokedToken.id }
             );
-            await RefreshTokenModel.update(tokenData, {
+            await RefreshToken.update(tokenData, {
                 where: { id: revokedToken.id },
             });
         } else if (userRefreshTokens.length < 3) {
             loginLogger.info("Creating a new refresh token record", {
                 deviceName,
             });
-            await RefreshTokenModel.create({
+            await RefreshToken.create({
                 ...tokenData,
                 ownerId: userId,
                 device: deviceName,
@@ -56,7 +56,7 @@ export const saveNewRefreshToken = async (
                 "Overwriting the oldest refresh token record (session limit reached)",
                 { tokenId: oldestToken.id, deviceName }
             );
-            await RefreshTokenModel.update(tokenData, {
+            await RefreshToken.update(tokenData, {
                 where: { id: oldestToken.id },
             });
         }
@@ -82,15 +82,12 @@ export const saveNewRefreshToken = async (
 
 export const renewAccessToken = async (
     user,
-    model,
     oldRefreshToken,
     refreshTokenLogger
 ) => {
     try {
-        const { RefreshTokenModel } = model;
-
         refreshTokenLogger.info("Searching for user's active refresh tokens");
-        const refreshTokenList = await RefreshTokenModel.findAll({
+        const refreshTokenList = await RefreshToken.findAll({
             where: { ownerId: user.id, isRevoked: false },
         });
 
@@ -140,7 +137,7 @@ export const renewAccessToken = async (
         refreshTokenLogger.info("New token pair generated successfully");
 
         const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
-        await RefreshTokenModel.update(
+        await RefreshToken.update(
             {
                 token: hashedNewRefreshToken,
                 expiresAt: new Date(Date.now() + SEVEN_DAYS),
@@ -178,11 +175,9 @@ export const renewAccessToken = async (
     }
 };
 
-export const saveResetTokenToDatabase = async (user, resetToken, model) => {
-    const { ResetTokenModel } = model;
-
+export const saveResetTokenToDatabase = async (user, resetToken) => {
     const hashedResetToken = await bcrypt.hash(resetToken, 10);
-    await ResetTokenModel.create({
+    await ResetToken.create({
         userId: user.id,
         token: hashedResetToken,
         expiresAt: Date.now() + 5 * 60 * 1000,

@@ -8,7 +8,6 @@ import {
     getCategorizedEventsService,
     getPaginatedEventsService,
 } from "../service/event.service.js";
-import db from "../model/index.js";
 import logger from "../utils/logger.js";
 import AppError from "../utils/AppError.js";
 
@@ -55,7 +54,6 @@ export const eventViewer = async (req, res, next) => {
             role,
             page,
             limit,
-            EventModel: db.Event,
             logger: controllerLogger,
         });
 
@@ -109,17 +107,10 @@ export const createEvent = async (req, res, next) => {
             },
         });
 
-        const model = {
-            UserModel: db.User,
-            EventModel: db.Event,
-            NotificationModel: db.Notification,
-        };
-
         const newEvent = await saveNewEventAndNotify(
             user.id,
             req.body,
             req.file,
-            model,
             controllerLogger
         );
 
@@ -168,13 +159,7 @@ export const deleteEvent = async (req, res, next) => {
     try {
         controllerLogger.info("Event deletion process initiated");
 
-        const model = {
-            UserModel: db.User,
-            EventModel: db.Event,
-            NotificationModel: db.Notification,
-        };
-
-        await handleDeleteEvent(userId, eventId, model, controllerLogger);
+        await handleDeleteEvent(userId, eventId, controllerLogger);
 
         controllerLogger.info("Event deleted successfully");
 
@@ -219,12 +204,7 @@ export const createFeedback = async (req, res, next) => {
             },
         });
 
-        const model = {
-            EventModel: db.Event,
-            NotificationModel: db.Notification,
-        };
-
-        await sendFeedback(eventId, user.id, feedback, model, controllerLogger);
+        await sendFeedback(eventId, user.id, feedback, controllerLogger);
 
         controllerLogger.info("Feedback sent successfully");
 
@@ -261,12 +241,6 @@ export const editEvent = async (req, res, next) => {
         userId: adminId,
     });
 
-    const model = {
-        UserModel: db.User,
-        EventModel: db.Event,
-        NotificationModel: db.Notification,
-    };
-
     try {
         const eventId = req.params.eventId;
         const data = req.body;
@@ -286,14 +260,7 @@ export const editEvent = async (req, res, next) => {
             },
         });
 
-        await editEventService(
-            eventId,
-            adminId,
-            data,
-            image,
-            model,
-            controllerLogger
-        );
+        await editEventService(eventId, adminId, data, image, controllerLogger);
 
         controllerLogger.info("Event updated successfully", {
             context: { eventId },
@@ -342,16 +309,10 @@ export const rejectEvent = async (req, res, next) => {
             },
         });
 
-        const model = {
-            EventModel: db.Event,
-            NotificationModel: db.Notification,
-        };
-
         await rejectEventService(
             eventId,
             superAdminId,
             feedback,
-            model,
             controllerLogger
         );
 
@@ -393,17 +354,7 @@ export const approveEvent = async (req, res, next) => {
     try {
         controllerLogger.info("Event approval process initiated");
 
-        const model = {
-            EventModel: db.Event,
-            NotificationModel: db.Notification,
-        };
-
-        await approveEventService(
-            eventId,
-            superAdminId,
-            model,
-            controllerLogger
-        );
+        await approveEventService(eventId, superAdminId, controllerLogger);
 
         controllerLogger.info("Event approved successfully");
 

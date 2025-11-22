@@ -13,8 +13,9 @@ import {
 } from "./upload.service.js";
 import { sequelize } from "../config/dbconfig.js";
 import socketService from "../socket/index.js";
+import { Event, User, Notification } from "../model/index.js";
 
-export const getCategorizedEventsService = async ({ EventModel, logger }) => {
+export const getCategorizedEventsService = async ({ logger }) => {
     try {
         logger.info("Fetching categorized events from database");
 
@@ -40,14 +41,14 @@ export const getCategorizedEventsService = async ({ EventModel, logger }) => {
         const today = new Date();
 
         const [currentEvents, thisWeekEvents, nextEvents] = await Promise.all([
-            EventModel.findAll({
+            Event.findAll({
                 ...commonOptions,
                 where: {
                     ...commonOptions.where,
                     date: { [Op.eq]: startOfToday() },
                 },
             }),
-            EventModel.findAll({
+            Event.findAll({
                 ...commonOptions,
                 where: {
                     ...commonOptions.where,
@@ -57,7 +58,7 @@ export const getCategorizedEventsService = async ({ EventModel, logger }) => {
                     },
                 },
             }),
-            EventModel.findAll({
+            Event.findAll({
                 ...commonOptions,
                 where: {
                     ...commonOptions.where,
@@ -102,7 +103,7 @@ export const getCategorizedEventsService = async ({ EventModel, logger }) => {
 };
 
 export const getPaginatedEventsService = async (options) => {
-    const { userId, role, page, limit, EventModel, logger } = options;
+    const { userId, role, page, limit, logger } = options;
 
     try {
         const pageNum = parseInt(page, 10);
@@ -124,7 +125,7 @@ export const getPaginatedEventsService = async (options) => {
             );
         }
 
-        const { count, rows } = await EventModel.findAndCountAll({
+        const { count, rows } = await Event.findAndCountAll({
             where: whereClause,
             limit: limitNum,
             offset,
@@ -171,14 +172,7 @@ export const getPaginatedEventsService = async (options) => {
     }
 };
 
-export const saveNewEventAndNotify = async (
-    userId,
-    data,
-    file,
-    model,
-    logger
-) => {
-    const { UserModel, EventModel, NotificationModel } = model;
+export const saveNewEventAndNotify = async (userId, data, file, logger) => {
     const {
         eventName,
         date,
@@ -217,11 +211,11 @@ export const saveNewEventAndNotify = async (
         logger.info("Starting database transaction");
         const newEvent = await sequelize.transaction(async (t) => {
             const [creator, superAdmins] = await Promise.all([
-                UserModel.findByPk(userId, {
+                User.findByPk(userId, {
                     attributes: ["firstName"],
                     transaction: t,
                 }),
-                UserModel.findAll({
+                User.findAll({
                     where: { role: "super_admin" },
                     attributes: ["id"],
                     transaction: t,
@@ -243,7 +237,7 @@ export const saveNewEventAndNotify = async (
                 context: { superAdminCount: superAdmins.length },
             });
 
-            const event = await EventModel.create(
+            const event = await Event.create(
                 {
                     id: eventId,
                     creatorId: userId,
@@ -298,7 +292,7 @@ export const saveNewEventAndNotify = async (
                 creatorNotification,
             ];
 
-            await NotificationModel.bulkCreate(allNotifications, {
+            await Notification.bulkCreate(allNotifications, {
                 transaction: t,
             });
             logger.info("Notification records bulk-created successfully", {
@@ -377,9 +371,7 @@ export const saveNewEventAndNotify = async (
     }
 };
 
-export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
-    const { UserModel, EventModel, NotificationModel } = model;
-
+export const handleDeleteEvent = async (adminId, eventId, logger) => {
     let eventDataForCleanupAndNotify;
     let adminName;
 
@@ -388,11 +380,11 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
         logger.info("Starting database transaction for event deletion");
 
         await sequelize.transaction(async (t) => {
-            const event = await EventModel.findOne({
+            const event = await Event.findOne({
                 where: { id: eventId, creatorId: adminId },
                 include: [
                     {
-                        model: UserModel,
+                        model: User,
                         as: "creator",
                         attributes: ["firstName"],
                     },
@@ -416,7 +408,7 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
                 "Event found in database. Proceeding with deletion logic."
             );
 
-            const superAdmins = await UserModel.findAll({
+            const superAdmins = await User.findAll({
                 where: { role: "super_admin" },
                 attributes: ["id"],
                 transaction: t,
@@ -432,7 +424,8 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
                 notificationType: "event_deleted",
                 payload: {
                     eventName: eventDataForCleanupAndNotify.eventName,
-                    time: eventDataForCleanupAndNotify.time,
+                    startTime: eventDataForCleanupAndNotify.startTime,
+                    endTime: eventDataForCleanupAndNotify.endTime,
                     date: eventDataForCleanupAndNotify.date,
                     location: eventDataForCleanupAndNotify.location,
                     speaker: eventDataForCleanupAndNotify.speaker,
@@ -440,7 +433,7 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
                 },
             }));
 
-            await NotificationModel.bulkCreate(notifications, {
+            await Notification.bulkCreate(notifications, {
                 transaction: t,
             });
 
@@ -538,23 +531,17 @@ export const handleDeleteEvent = async (adminId, eventId, model, logger) => {
     }
 };
 
-export const sendFeedback = async (
-    eventId,
-    superAdminId,
-    feedback,
-    model,
-    logger
-) => {
-    const { EventModel, NotificationModel } = model;
-
+export const sendFeedback = async (eventId, superAdminId, feedback, logger) => {
     try {
         logger.info("Feedback sending process started in service");
 
         logger.info("Starting database transaction");
         const newNotification = await sequelize.transaction(async (t) => {
-            const event = await EventModel.findByPk(eventId, {
+            const event = await Event.findByPk(eventId, {
                 transaction: t,
             });
+
+            console.log(eventId);
 
             if (!event) {
                 logger.warn("Feedback failed: Event not found in database");
@@ -576,7 +563,8 @@ export const sendFeedback = async (
                 feedback,
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -584,7 +572,7 @@ export const sendFeedback = async (
                 },
             };
 
-            const createdNotification = await NotificationModel.create(
+            const createdNotification = await Notification.create(
                 notificationData,
                 { transaction: t }
             );
@@ -637,11 +625,8 @@ export const editEventService = async (
     adminId,
     data,
     image,
-    model,
     logger
 ) => {
-    const { UserModel, EventModel, NotificationModel } = model;
-
     let uploadResult;
     try {
         logger.info("Event update process started in service", {
@@ -669,7 +654,7 @@ export const editEventService = async (
 
         logger.info("Starting database transaction");
         const updatedEvent = await sequelize.transaction(async (t) => {
-            const event = await EventModel.findOne({
+            const event = await Event.findOne({
                 where: { id: eventId, creatorId: adminId },
                 transaction: t,
             });
@@ -714,13 +699,18 @@ export const editEventService = async (
 
             logger.info("Event record updated successfully in database");
 
-            const superAdmins = await UserModel.findAll({
+            const superAdmins = await User.findAll({
                 where: { role: "super_admin" },
                 attributes: ["id"],
                 transaction: t,
             });
 
-            const updatedPayloadData = { ...event.dataValues, ...dataToUpdate };
+            const updatedPayloadData = { ...event.dataValues };
+
+            console.log("Event.DataValuesnya adalah: ", event.dataValues);
+            console.log("Allowed Updatesnya adalah: ", allowedUpdates);
+
+            console.log("Hasil Payload datanya adalah : ", updatedPayloadData);
             const notifications = superAdmins.map((superAdmin) => ({
                 eventId: event.id,
                 senderId: adminId,
@@ -728,7 +718,8 @@ export const editEventService = async (
                 notificationType: "event_updated",
                 payload: {
                     eventName: updatedPayloadData.eventName,
-                    time: updatedPayloadData.time,
+                    startTime: updatedPayloadData.startTime,
+                    endTime: updatedPayloadData.endTime,
                     date: updatedPayloadData.date,
                     location: updatedPayloadData.location,
                     speaker: updatedPayloadData.speaker,
@@ -743,7 +734,8 @@ export const editEventService = async (
                 notificationType: "event_pending",
                 payload: {
                     eventName: updatedPayloadData.eventName,
-                    time: updatedPayloadData.time,
+                    startTime: updatedPayloadData.startTime,
+                    endTime: updatedPayloadData.endTime,
                     date: updatedPayloadData.date,
                     location: updatedPayloadData.location,
                     speaker: updatedPayloadData.speaker,
@@ -751,7 +743,7 @@ export const editEventService = async (
                 },
             });
 
-            await NotificationModel.bulkCreate(notifications, {
+            await Notification.bulkCreate(notifications, {
                 transaction: t,
             });
 
@@ -831,17 +823,14 @@ export const rejectEventService = async (
     eventId,
     superAdminId,
     feedback,
-    model,
     logger
 ) => {
-    const { EventModel, NotificationModel } = model;
-
     try {
         logger.info("Event rejection process started in service");
 
         logger.info("Starting database transaction");
         const newNotification = await sequelize.transaction(async (t) => {
-            const event = await EventModel.findOne({
+            const event = await Event.findOne({
                 where: { id: eventId, status: ["pending", "revised"] },
                 transaction: t,
             });
@@ -871,7 +860,8 @@ export const rejectEventService = async (
                 feedback,
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -879,7 +869,7 @@ export const rejectEventService = async (
                 },
             };
 
-            const createdNotification = await NotificationModel.create(
+            const createdNotification = await Notification.create(
                 notificationData,
                 { transaction: t }
             );
@@ -929,20 +919,13 @@ export const rejectEventService = async (
     }
 };
 
-export const approveEventService = async (
-    eventId,
-    superAdminId,
-    model,
-    logger
-) => {
-    const { EventModel, NotificationModel } = model;
-
+export const approveEventService = async (eventId, superAdminId, logger) => {
     try {
         logger.info("Event approval process started in service");
 
         logger.info("Starting database transaction");
         const newNotification = await sequelize.transaction(async (t) => {
-            const event = await EventModel.findOne({
+            const event = await Event.findOne({
                 where: { id: eventId, status: ["pending", "revised"] },
                 transaction: t,
             });
@@ -971,7 +954,8 @@ export const approveEventService = async (
                 notificationType: "event_approved",
                 payload: {
                     eventName: event.eventName,
-                    time: event.time,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
                     date: event.date,
                     location: event.location,
                     speaker: event.speaker,
@@ -979,7 +963,7 @@ export const approveEventService = async (
                 },
             };
 
-            const createdNotification = await NotificationModel.create(
+            const createdNotification = await Notification.create(
                 notificationData,
                 { transaction: t }
             );

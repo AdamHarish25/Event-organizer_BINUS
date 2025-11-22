@@ -4,7 +4,6 @@ import logger from "../utils/logger.js";
 
 export const schemaValidator = (schemas) => {
     return async (req, res, next) => {
-
         const errors = {};
         const correlationId =
             req.correlationId || req.headers["x-correlation-id"] || uuidv7();
@@ -56,7 +55,6 @@ export const schemaValidator = (schemas) => {
                             method: req.method,
                             url: req.originalUrl,
                             userAgent: req.headers["user-agent"],
-                            body: req.body,
                         },
                         validationErrors: errors,
                     },

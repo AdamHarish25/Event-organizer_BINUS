@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { uuidv7 } from "uuidv7";
-
-import db from "../model/index.js";
+import { User } from "../model/index.js";
 import {
     requestPasswordReset,
     resetPasswordHandler,
@@ -28,14 +27,7 @@ export const forgotPassword = async (req, res, next) => {
 
     try {
         controllerLogger.info("Forgot password process initiated");
-
-        const model = {
-            UserModel: db.User,
-            OTPModel: db.OTP,
-        };
-
-        await requestPasswordReset(email, model, controllerLogger);
-
+        await requestPasswordReset(email, controllerLogger);
         controllerLogger.info("Forgot password OTP sent successfully");
 
         res.status(200).json({
@@ -80,12 +72,7 @@ export const verifyOTP = async (req, res, next) => {
     try {
         controllerLogger.info("OTP verification process initiated");
 
-        const model = {
-            OTPModel: db.OTP,
-            ResetTokenModel: db.ResetToken,
-        };
-
-        const user = await db.User.findOne({ where: { email } });
+        const user = await User.findOne({ where: { email } });
         if (!user) {
             controllerLogger.warn("User not found, aborting OTP validation");
             throw new AppError("Email tidak terdaftar", 404, "USER_NOT_FOUND");
@@ -95,16 +82,11 @@ export const verifyOTP = async (req, res, next) => {
             context: { userId: user.id },
         });
 
-        await validateOTP(user, otp, model, controllerLogger);
+        await validateOTP(user, otp, controllerLogger);
 
         const resetToken = crypto.randomBytes(32).toString("hex");
 
-        await saveResetTokenToDatabase(
-            user,
-            resetToken,
-            model,
-            controllerLogger
-        );
+        await saveResetTokenToDatabase(user, resetToken, controllerLogger);
 
         controllerLogger.info(
             "OTP verified successfully, reset token generated and saved"
@@ -157,12 +139,7 @@ export const resetPassword = async (req, res, next) => {
             },
         });
 
-        const model = {
-            UserModel: db.User,
-            ResetTokenModel: db.ResetToken,
-        };
-
-        const user = await db.User.findOne({ where: { email } });
+        const user = await User.findOne({ where: { email } });
         if (!user) {
             throw new AppError("Email tidak terdaftar", 404, "USER_NOT_FOUND");
         }
@@ -174,7 +151,6 @@ export const resetPassword = async (req, res, next) => {
         await resetPasswordHandler(
             user,
             newPassword,
-            model,
             resetToken,
             controllerLogger
         );

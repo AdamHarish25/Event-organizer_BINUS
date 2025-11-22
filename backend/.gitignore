@@ -6,3 +6,5 @@ security/
 playground/
 risk.txt
 logs/
+test/
+coverage/

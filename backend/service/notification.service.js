@@ -1,11 +1,10 @@
 import AppError from "../utils/AppError.js";
-import logger from "../utils/logger.js";
+import { Notification } from "../model/index.js";
 
 export const getNotificationService = async (
     userId,
     pageNum,
     limitNum,
-    NotificationModel,
     logger
 ) => {
     try {
@@ -15,7 +14,7 @@ export const getNotificationService = async (
             context: { page: pageNum, limit: limitNum },
         });
 
-        const { count, rows } = await NotificationModel.findAndCountAll({
+        const { count, rows } = await Notification.findAndCountAll({
             where: { recipientId: userId },
             limit: limitNum,
             offset,
@@ -57,16 +56,11 @@ export const getNotificationService = async (
     }
 };
 
-export const markAsReadService = async (
-    notificationId,
-    userId,
-    NotificationModel,
-    logger
-) => {
+export const markAsReadService = async (notificationId, userId, logger) => {
     try {
         logger.info("Attempting to mark notification as read in database");
 
-        const [updatedRows] = await NotificationModel.update(
+        const [updatedRows] = await Notification.update(
             { isRead: true },
             {
                 where: {

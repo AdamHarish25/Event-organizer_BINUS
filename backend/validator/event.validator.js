@@ -123,7 +123,7 @@ const baseEventSchema = Joi.object({
         "string.max": "Nama speaker maksimal 100 karakter.",
     }),
 
-    description: Joi.string().trim().allow("").max(5000).messages({
+    description: Joi.string().trim().max(5000).messages({
         "string.base": "Deskripsi event harus berupa teks.",
         "string.max": "Deskripsi event tidak boleh lebih dari 5,000 karakter.",
     }),
@@ -202,6 +202,9 @@ const baseEventSchema = Joi.object({
 export const createEventSchema = baseEventSchema.keys({
     eventName: baseEventSchema.extract("eventName").required().messages({
         "any.required": "Nama event wajib diisi.",
+    }),
+    description: baseEventSchema.extract("description").required().messages({
+        "any.required": "Deksripsi event tidak boleh kosong.",
     }),
     startTime: baseEventSchema.extract("startTime").required().messages({
         "any.required": "Waktu mulai event wajib diisi.",

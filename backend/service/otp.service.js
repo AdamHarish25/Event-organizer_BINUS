@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
 import { sequelize } from "../config/dbconfig.js";
+import { OTP } from "../model/index.js";
 
 export const OTP_CONFIG = {
     MAX_ATTEMPTS: 3,
@@ -32,14 +33,13 @@ const validateOTPFormat = (otp) => {
     }
 };
 
-export const validateOTP = async (user, otp, model, logger) => {
-    const { OTPModel } = model;
+export const validateOTP = async (user, otp, logger) => {
     try {
         logger.info("OTP validation process started in service");
         validateOTPFormat(otp);
 
         const validationResult = await sequelize.transaction(async (t) => {
-            const otpRecord = await OTPModel.findOne({
+            const otpRecord = await OTP.findOne({
                 where: {
                     userId: user.id,
                     verified: false,
@@ -156,15 +156,7 @@ export const validateOTP = async (user, otp, model, logger) => {
     }
 };
 
-export const saveOTPToDatabase = async (
-    userId,
-    otp,
-    model,
-    transaction,
-    logger
-) => {
-    const { OTPModel } = model;
-
+export const saveOTPToDatabase = async (userId, otp, transaction, logger) => {
     try {
         logger.info("Saving new OTP to database process started", {
             context: { userId },
@@ -173,7 +165,7 @@ export const saveOTPToDatabase = async (
         const otpHash = await bcrypt.hash(otp, OTP_CONFIG.BCRYPT_ROUNDS);
         logger.info("OTP hashed successfully", { context: { userId } });
 
-        const [updatedRows] = await OTPModel.update(
+        const [updatedRows] = await OTP.update(
             { valid: false, invalidatedAt: new Date() },
             {
                 where: {
@@ -208,7 +200,7 @@ export const saveOTPToDatabase = async (
                 hasTransaction: !!transaction,
             },
         });
-        const newOTP = await OTPModel.create(
+        const newOTP = await OTP.create(
             {
                 userId,
                 code: otpHash,
