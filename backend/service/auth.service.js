@@ -1,6 +1,8 @@
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
-
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import getToken from "../utils/getToken.js";
 import { saveNewRefreshToken } from "../service/token.service.js";
 import { sendOTPEmail } from "../utils/emailSender.js";
@@ -13,6 +15,9 @@ import {
     revokeRefreshToken,
 } from "../service/token.service.js";
 import { sequelize } from "../config/dbconfig.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const BCRPT_SALT_ROUDS = 10;
 
@@ -132,111 +137,16 @@ export const requestPasswordReset = async (email, logger) => {
         const otp = generateOTP();
         logger.info("OTP generated successfully");
 
+        const templatePath = path.join(__dirname, "../view/otp-email.html");
+
+        let htmlContent = fs.readFileSync(templatePath, "utf8");
+        htmlContent = htmlContent.replace("{{otp}}", otp);
+
         const mailOptions = {
             from: `BINUS Event Viewer <${process.env.EMAIL_USER}>`,
             to: email,
             subject: `Reset Password - Kode OTP`,
-            html: `<!DOCTYPE html>
-                    <html>
-                        <head>
-                            <meta charset="UTF-8" />
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                            <title>Reset Password</title>
-                        </head>
-                        <body
-                            style="
-                                margin: 0;
-                                padding: 0;
-                                font-family: Arial, sans-serif;
-                                background-color: #f5f5f5;
-                            "
-                        >
-                            <div
-                                style="
-                                    max-width: 600px;
-                                    margin: 0 auto;
-                                    background-color: #ffffff;
-                                    padding: 40px 20px;
-                                "
-                            >
-                                <div style="text-align: center; margin-bottom: 30px">
-                                    <h1 style="color: #333333; font-size: 24px; margin: 0">
-                                        Reset Password
-                                    </h1>
-                                </div>
-
-                                <div
-                                    style="
-                                        background-color: #f8f9fa;
-                                        padding: 20px;
-                                        border-radius: 8px;
-                                        margin-bottom: 20px;
-                                    "
-                                >
-                                    <p
-                                        style="
-                                            color: #666666;
-                                            font-size: 16px;
-                                            line-height: 1.5;
-                                            margin: 0 0 15px 0;
-                                        "
-                                    >
-                                        Kami menerima permintaan untuk mereset password akun Anda.
-                                        Gunakan kode OTP berikut untuk melanjutkan proses reset
-                                        password.
-                                    </p>
-
-                                    <div style="text-align: center; margin: 25px 0">
-                                        <div
-                                            style="
-                                                display: inline-block;
-                                                background-color: #007bff;
-                                                color: #ffffff;
-                                                padding: 15px 30px;
-                                                border-radius: 6px;
-                                                font-size: 24px;
-                                                font-weight: bold;
-                                                letter-spacing: 2px;
-                                            "
-                                        >
-                                            ${otp}
-                                        </div>
-                                    </div>
-
-                                    <p
-                                        style="
-                                            color: #666666;
-                                            font-size: 14px;
-                                            margin: 15px 0 0 0;
-                                            text-align: center;
-                                        "
-                                    >
-                                        Kode ini akan kedaluwarsa dalam <strong>5 menit</strong>
-                                    </p>
-                                </div>
-
-                                <div style="border-top: 1px solid #e9ecef; padding-top: 20px">
-                                    <p
-                                        style="
-                                            color: #999999;
-                                            font-size: 12px;
-                                            line-height: 1.4;
-                                            margin: 0;
-                                        "
-                                    >
-                                        Jika Anda tidak meminta reset password, abaikan email ini.
-                                        Password Anda akan tetap aman.
-
-                                        <br /><br />
-
-                                        Email ini dikirim secara otomatis, mohon tidak membalas
-                                        email ini.
-                                    </p>
-                                </div>
-                            </div>
-                        </body>
-                    </html>
-                    `,
+            html: htmlContent,
         };
 
         logger.info("Starting database transaction to save OTP and send email");
