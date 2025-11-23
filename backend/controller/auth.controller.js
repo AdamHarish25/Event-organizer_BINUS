@@ -193,7 +193,7 @@ export const refreshAccessToken = async (req, res, next) => {
         source: "AuthController.refreshAccessToken",
         userId: user.id,
     });
-    const deviceName = extractDeviceInfo(req);
+    const deviceInfo = extractDeviceInfo(req);
 
     try {
         refreshTokenLogger.info("Access token refresh process initiated");
@@ -203,7 +203,7 @@ export const refreshAccessToken = async (req, res, next) => {
             user,
             oldRefreshToken,
             refreshTokenLogger,
-            deviceName
+            deviceInfo.deviceName
         );
 
         res.clearCookie("refreshToken", {
