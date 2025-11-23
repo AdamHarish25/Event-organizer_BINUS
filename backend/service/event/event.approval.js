@@ -1,7 +1,7 @@
 import AppError from "../../utils/AppError.js";
+import { createAndEmitNotification } from "../notification.service.js";
 import { sequelize } from "../../config/dbconfig.js";
-import socketService from "../../socket/index.js";
-import { Event, Notification } from "../../model/index.js";
+import { Event } from "../../model/index.js";
 
 export const rejectEventService = async (
     eventId,
@@ -13,7 +13,7 @@ export const rejectEventService = async (
         logger.info("Event rejection process started in service");
 
         logger.info("Starting database transaction");
-        const newNotification = await sequelize.transaction(async (t) => {
+        await sequelize.transaction(async (t) => {
             const event = await Event.findOne({
                 where: { id: eventId, status: ["pending", "revised"] },
                 transaction: t,
@@ -36,7 +36,7 @@ export const rejectEventService = async (
             await event.update({ status: "rejected" }, { transaction: t });
             logger.info("Event status successfully updated to 'rejected'");
 
-            const notificationData = {
+            await createAndEmitNotification({
                 eventId: event.id,
                 senderId: superAdminId,
                 recipientId: event.creatorId,
@@ -51,37 +51,16 @@ export const rejectEventService = async (
                     speaker: event.speaker,
                     imageUrl: event.imageUrl,
                 },
-            };
-
-            const createdNotification = await Notification.create(
-                notificationData,
-                { transaction: t }
-            );
-
-            logger.info(
-                "Notification record for event rejection created successfully",
-                { context: { feedbackProvided: !!feedback } }
-            );
-
-            return createdNotification;
+                socketConfig: {
+                    title: "Your Request has been REJECTED",
+                    message: "Please review the provided Feedback.",
+                },
+                transaction: t,
+                logger,
+            });
         });
 
         logger.info("Database transaction committed successfully");
-
-        const io = socketService.getIO();
-        io.to(newNotification.recipientId).emit("new_notification", {
-            type: "event_rejected",
-            title: "Your Request has been REJECTED",
-            message: "Please review the provided Feedback.",
-            data: newNotification,
-        });
-
-        logger.info(
-            "Socket notification for event rejection emitted successfully",
-            { context: { recipientId: newNotification.recipientId } }
-        );
-
-        return newNotification;
     } catch (error) {
         if (error instanceof AppError) {
             throw error;
@@ -108,7 +87,7 @@ export const approveEventService = async (eventId, superAdminId, logger) => {
         logger.info("Event approval process started in service");
 
         logger.info("Starting database transaction");
-        const newNotification = await sequelize.transaction(async (t) => {
+        await sequelize.transaction(async (t) => {
             const event = await Event.findOne({
                 where: { id: eventId, status: ["pending", "revised"] },
                 transaction: t,
@@ -131,7 +110,7 @@ export const approveEventService = async (eventId, superAdminId, logger) => {
             await event.update({ status: "approved" }, { transaction: t });
             logger.info("Event status successfully updated to 'approved'");
 
-            const notificationData = {
+            await createAndEmitNotification({
                 eventId: event.id,
                 senderId: superAdminId,
                 recipientId: event.creatorId,
@@ -145,34 +124,15 @@ export const approveEventService = async (eventId, superAdminId, logger) => {
                     speaker: event.speaker,
                     imageUrl: event.imageUrl,
                 },
-            };
-
-            const createdNotification = await Notification.create(
-                notificationData,
-                { transaction: t }
-            );
-            logger.info(
-                "Notification record for event approval created successfully"
-            );
-
-            return createdNotification;
+                socketConfig: {
+                    title: "Your Request has been APPROVED",
+                    message: `Congratulations! Your event "${event.eventName}" has been approved.`,
+                },
+                transaction: t,
+                logger,
+            });
         });
         logger.info("Database transaction committed successfully");
-
-        const io = socketService.getIO();
-        io.to(newNotification.recipientId).emit("new_notification", {
-            type: "event_approved",
-            title: "Your Request has been APPROVED",
-            message: `Congratulations! Your event "${newNotification.payload.eventName}" has been approved.`,
-            data: newNotification,
-        });
-
-        logger.info(
-            "Socket notification for event approval emitted successfully",
-            { context: { recipientId: newNotification.recipientId } }
-        );
-
-        return newNotification;
     } catch (error) {
         if (error instanceof AppError) {
             throw error;
@@ -204,12 +164,10 @@ export const submitEventFeedbackService = async (
         logger.info("Feedback sending process started in service");
 
         logger.info("Starting database transaction");
-        const newNotification = await sequelize.transaction(async (t) => {
+        await sequelize.transaction(async (t) => {
             const event = await Event.findByPk(eventId, {
                 transaction: t,
             });
-
-            console.log(eventId);
 
             if (!event) {
                 logger.warn("Feedback failed: Event not found in database");
@@ -223,7 +181,7 @@ export const submitEventFeedbackService = async (
             await event.update({ status: "revised" }, { transaction: t });
             logger.info("Event status successfully updated to 'revised'");
 
-            const notificationData = {
+            await createAndEmitNotification({
                 eventId,
                 senderId: superAdminId,
                 recipientId: event.creatorId,
@@ -238,35 +196,16 @@ export const submitEventFeedbackService = async (
                     speaker: event.speaker,
                     imageUrl: event.imageUrl,
                 },
-            };
-
-            const createdNotification = await Notification.create(
-                notificationData,
-                { transaction: t }
-            );
-
-            logger.info(
-                "Notification record with feedback created successfully"
-            );
-
-            return createdNotification;
+                socketConfig: {
+                    title: "Your Request requires REVISION",
+                    message: "Please review the provided Feedback",
+                },
+                transaction: t,
+                logger,
+            });
         });
 
         logger.info("Database transaction committed successfully");
-
-        const io = socketService.getIO();
-        io.to(newNotification.recipientId).emit("new_notification", {
-            type: "event_revised",
-            title: "Your Request requires REVISION",
-            message: "Please review the provided Feedback",
-            data: newNotification,
-        });
-
-        logger.info("Socket notification for feedback sent successfully", {
-            context: { recipientId: newNotification.recipientId },
-        });
-
-        return newNotification;
     } catch (error) {
         if (error instanceof AppError) {
             throw error;

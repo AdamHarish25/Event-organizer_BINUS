@@ -8,10 +8,13 @@ import {
     uploadPosterImage,
     deleteSingleFile,
     deleteEventFolder,
-} from "./../upload.service.js";
+} from "../upload.service.js";
+import {
+    createAndEmitNotification,
+    createAndEmitBroadcastNotification,
+} from "../notification.service.js";
 import { sequelize } from "../../config/dbconfig.js";
-import socketService from "../../socket/index.js";
-import { Event, User, Notification } from "../../model/index.js";
+import { Event, User } from "../../model/index.js";
 
 export const createEventService = async (userId, data, file, logger) => {
     const {
@@ -99,10 +102,10 @@ export const createEventService = async (userId, data, file, logger) => {
                 context: { eventId: event.id },
             });
 
-            const superAdminNotifications = superAdmins.map((supAdmin) => ({
+            await createAndEmitBroadcastNotification({
                 eventId: event.id,
                 senderId: userId,
-                recipientId: supAdmin.id,
+                recipients: superAdmins,
                 notificationType: "event_created",
                 payload: {
                     eventName,
@@ -112,9 +115,16 @@ export const createEventService = async (userId, data, file, logger) => {
                     speaker,
                     imageUrl: event.imageUrl,
                 },
-            }));
+                socketConfig: {
+                    room: "super_admin-room",
+                    title: "A new request has been submitted",
+                    message: `${creatorName} has submitted a request for the event: ${event.eventName}. Please review it.`,
+                },
+                transaction: t,
+                logger,
+            });
 
-            const creatorNotification = {
+            await createAndEmitNotification({
                 eventId: event.id,
                 senderId: userId,
                 recipientId: userId,
@@ -127,39 +137,18 @@ export const createEventService = async (userId, data, file, logger) => {
                     speaker,
                     imageUrl: event.imageUrl,
                 },
-            };
-            const allNotifications = [
-                ...superAdminNotifications,
-                creatorNotification,
-            ];
-
-            await Notification.bulkCreate(allNotifications, {
+                socketConfig: {
+                    title: "Your Request is currently PENDING",
+                    message:
+                        "We will inform you of the outcome as soon as possible.",
+                },
                 transaction: t,
-            });
-            logger.info("Notification records bulk-created successfully", {
-                context: { notificationCount: allNotifications.length },
+                logger,
             });
 
             return event;
         });
         logger.info("Database transaction committed successfully");
-
-        const io = socketService.getIO();
-        io.to("super_admin-room").emit("new_notification", {
-            type: "event_created",
-            title: "A new request has been submitted",
-            message: `${creatorName} has submitted a request for the event: ${newEvent.eventName}. Please review it.`,
-            isRead: false,
-            data: newEvent,
-        });
-
-        io.to(userId).emit("new_notification", {
-            type: "event_pending",
-            title: "Your Request is currently PENDING",
-            message: "We will inform you of the outcome as soon as possible.",
-            isRead: false,
-            data: newEvent,
-        });
 
         logger.info("Socket notifications emitted to rooms", {
             context: { rooms: ["super_admin-room", userId] },
@@ -258,10 +247,13 @@ export const deleteEventService = async (adminId, eventId, logger) => {
             eventDataForCleanupAndNotify = event.toJSON();
             adminName = event.creator.firstName;
 
-            const notifications = superAdmins.map((superAdmin) => ({
+            await event.destroy({ transaction: t });
+            logger.info("Event record successfully deleted from database");
+
+            await createAndEmitBroadcastNotification({
                 eventId: eventDataForCleanupAndNotify.id,
                 senderId: adminId,
-                recipientId: superAdmin.id,
+                recipients: superAdmins,
                 notificationType: "event_deleted",
                 payload: {
                     eventName: eventDataForCleanupAndNotify.eventName,
@@ -272,18 +264,14 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                     speaker: eventDataForCleanupAndNotify.speaker,
                     imageUrl: eventDataForCleanupAndNotify.imageUrl,
                 },
-            }));
-
-            await Notification.bulkCreate(notifications, {
+                socketConfig: {
+                    room: "super_admin-room",
+                    title: `Event "${eventDataForCleanupAndNotify.eventName}" has been deleted.`,
+                    message: `${adminName} removed this event from the system. No further action is required`,
+                },
                 transaction: t,
+                logger,
             });
-
-            logger.info(
-                `Notification records created for ${superAdmins.length} super admins about the deletion`
-            );
-
-            await event.destroy({ transaction: t });
-            logger.info("Event record successfully deleted from database");
         });
         logger.info("Database transaction committed successfully");
 
@@ -338,19 +326,6 @@ export const deleteEventService = async (adminId, eventId, logger) => {
         } else {
             logger.info(
                 "Event has no associated image. Skipping cloud cleanup."
-            );
-        }
-
-        if (eventDataForCleanupAndNotify) {
-            const io = socketService.getIO();
-            io.to("super_admin-room").emit("new_notification", {
-                type: "event_deleted",
-                title: `Event "${eventDataForCleanupAndNotify.eventName}" has been deleted.`,
-                message: `${adminName} removed this event from the system. No further action is required`,
-                data: eventDataForCleanupAndNotify,
-            });
-            logger.info(
-                "Socket notification for event deletion emitted successfully"
             );
         }
 
@@ -458,15 +433,10 @@ export const updateEventService = async (
             });
 
             const updatedPayloadData = { ...event.dataValues };
-
-            console.log("Event.DataValuesnya adalah: ", event.dataValues);
-            console.log("Allowed Updatesnya adalah: ", allowedUpdates);
-
-            console.log("Hasil Payload datanya adalah : ", updatedPayloadData);
-            const notifications = superAdmins.map((superAdmin) => ({
+            await createAndEmitBroadcastNotification({
                 eventId: event.id,
                 senderId: adminId,
-                recipientId: superAdmin.id,
+                recipients: superAdmins,
                 notificationType: "event_updated",
                 payload: {
                     eventName: updatedPayloadData.eventName,
@@ -477,9 +447,16 @@ export const updateEventService = async (
                     speaker: updatedPayloadData.speaker,
                     imageUrl: updatedPayloadData.imageUrl,
                 },
-            }));
+                socketConfig: {
+                    room: "super_admin-room",
+                    eventName: "eventUpdated",
+                    message: `Event "${updatedPayloadData.eventName}" telah diperbarui dan menunggu persetujuan.`,
+                },
+                transaction: t,
+                logger,
+            });
 
-            notifications.push({
+            await createAndEmitNotification({
                 eventId: event.id,
                 senderId: adminId,
                 recipientId: adminId,
@@ -493,39 +470,19 @@ export const updateEventService = async (
                     speaker: updatedPayloadData.speaker,
                     imageUrl: updatedPayloadData.imageUrl,
                 },
-            });
-
-            await Notification.bulkCreate(notifications, {
+                socketConfig: {
+                    title: "Your Request is currently PENDING",
+                    message:
+                        "We will inform you of the outcome as soon as possible.",
+                },
                 transaction: t,
+                logger,
             });
-
-            logger.info(
-                "Notification records for event update created successfully",
-                { context: { notificationCount: notifications.length } }
-            );
 
             return event;
         });
 
         logger.info("Database transaction committed successfully");
-
-        const io = socketService.getIO();
-        io.to("super_admin-room").emit("eventUpdated", {
-            message: `Event "${updatedEvent.eventName}" telah diperbarui dan menunggu persetujuan.`,
-            data: updatedEvent,
-        });
-
-        io.to(updatedEvent.creatorId).emit("new_notification", {
-            type: "event_pending",
-            title: "Your Request is currently PENDING",
-            message: "We will inform you of the outcome as soon as possible.",
-            isRead: false,
-            data: updatedEvent,
-        });
-
-        logger.info(
-            "Socket notifications for event update emitted successfully"
-        );
 
         return updatedEvent;
     } catch (error) {
