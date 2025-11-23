@@ -16,7 +16,6 @@ import {
     logout,
     refreshAccessToken,
 } from "../controller/auth.controller.js";
-import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 
 dotenv.config({ path: "../.env" });
 

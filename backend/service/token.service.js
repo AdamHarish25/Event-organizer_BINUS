@@ -1,8 +1,10 @@
 import bcrypt from "bcrypt";
+import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
 import getToken from "../utils/getToken.js";
 import AppError from "../utils/AppError.js";
 import { RefreshToken, ResetToken, BlacklistedToken } from "../model/index.js";
-import dotenv from "dotenv";
+import { hashToken } from "../utils/hashing.js";
 
 dotenv.config();
 
@@ -18,7 +20,7 @@ export const saveNewRefreshToken = async (
     try {
         loginLogger.info("Starting process to save new refresh token");
 
-        const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
+        const hashedNewRefreshToken = hashToken(newRefreshToken);
         const userRefreshTokens = await RefreshToken.findAll({
             where: { ownerId: userId },
             order: [["expiresAt", "ASC"]],
@@ -87,15 +89,18 @@ export const saveNewRefreshToken = async (
 export const renewAccessToken = async (
     user,
     oldRefreshToken,
-    refreshTokenLogger
+    refreshTokenLogger,
+    deviceName
 ) => {
     try {
         refreshTokenLogger.info("Searching for user's active refresh tokens");
-        const refreshTokenList = await RefreshToken.findAll({
-            where: { ownerId: user.id, isRevoked: false },
+        const hashedToken = hashToken(oldRefreshToken);
+
+        const refreshTokenFromDB = await RefreshToken.findOne({
+            where: { token: hashedToken },
         });
 
-        if (!refreshTokenList || refreshTokenList.length === 0) {
+        if (!refreshTokenFromDB) {
             refreshTokenLogger.warn(
                 "Token refresh failed: No active refresh tokens found in DB for user"
             );
@@ -105,32 +110,42 @@ export const renewAccessToken = async (
                 "REFRESH_TOKEN_NOT_FOUND"
             );
         }
-        refreshTokenLogger.info(
-            `Found ${refreshTokenList.length} active token(s). Starting comparison.`
-        );
 
-        let tokenRecord;
-        for (const refreshToken of refreshTokenList) {
-            const isMatch = await bcrypt.compare(
-                oldRefreshToken,
-                refreshToken.token
-            );
-            if (isMatch) {
-                tokenRecord = refreshToken;
-                break;
-            }
-        }
-
-        if (!tokenRecord) {
+        if (refreshTokenFromDB.isRevoked) {
             refreshTokenLogger.warn(
-                "Token refresh failed: Provided refresh token did not match any stored tokens"
+                "SECURITY ALERT: Attempt to reuse a revoked token!",
+                {
+                    userId: user.id,
+                    tokenId: refreshTokenFromDB.id,
+                }
             );
+
+            await RefreshToken.update(
+                { isRevoked: true },
+                { where: { ownerId: user.id } }
+            );
+
             throw new AppError(
-                "Sesi Anda tidak valid. Silakan login kembali.",
+                "Sesi terdeteksi ganda. Silakan login kembali demi keamanan.",
                 403,
-                "REFRESH_TOKEN_MISMATCH"
+                "TOKEN_REUSE_DETECTED"
             );
         }
+
+        if (refreshTokenFromDB.ownerId !== user.id) {
+            refreshTokenLogger.warn("Token ownership mismatch");
+            throw new AppError("Akses ditolak.", 403, "INVALID_TOKEN_OWNER");
+        }
+
+        if (new Date() > new Date(refreshTokenFromDB.expiresAt)) {
+            refreshTokenLogger.warn("Token expired");
+            throw new AppError(
+                "Sesi berakhir. Silakan login kembali.",
+                403,
+                "REFRESH_TOKEN_EXPIRED"
+            );
+        }
+
         refreshTokenLogger.info(
             "Matching refresh token found. Proceeding to generate new tokens."
         );
@@ -140,14 +155,16 @@ export const renewAccessToken = async (
             getToken(payload);
         refreshTokenLogger.info("New token pair generated successfully");
 
-        const hashedNewRefreshToken = await bcrypt.hash(newRefreshToken, 10);
+        const hashedNewRefreshToken = hashToken(newRefreshToken);
         await RefreshToken.update(
             {
                 token: hashedNewRefreshToken,
                 expiresAt: new Date(Date.now() + SEVEN_DAYS),
+                device: deviceName,
+                isRevoked: false,
             },
             {
-                where: { ownerId: user.id, token: tokenRecord.token },
+                where: { id: refreshTokenFromDB.id },
             }
         );
         refreshTokenLogger.info(
@@ -232,165 +249,58 @@ export const revokeRefreshToken = async (
     userId,
     logoutLogger
 ) => {
-    try {
-        logoutLogger.info("Searching for active refresh tokens in database");
-        const allRefreshTokenFromDB = await RefreshToken.findAll({
-            where: { ownerId: userId, isRevoked: false },
-        });
-
-        if (!allRefreshTokenFromDB || allRefreshTokenFromDB.length === 0) {
-            logoutLogger.warn(
-                "No active session found in DB (User might be already logged out/expired)"
-            );
-            return;
+    let finalUserId = userId;
+    if (!finalUserId && refreshTokenFromUser) {
+        try {
+            const decoded = jwt.decode(refreshTokenFromUser);
+            if (decoded?.id) finalUserId = decoded.id;
+        } catch (err) {
+            logoutLogger.warn("Failed to extract userId from token", {
+                reason: "invalid_token_format",
+            });
         }
-        logoutLogger.info(
-            `Found ${allRefreshTokenFromDB.length} active refresh token(s). Starting comparison.`
-        );
-
-        let targetTokenID = null;
-        for (const tokenRecord of allRefreshTokenFromDB) {
-            const isMatch = await bcrypt.compare(
-                refreshTokenFromUser,
-                tokenRecord.token
-            );
-            if (isMatch) {
-                targetTokenID = tokenRecord.id;
-                break;
-            }
-        }
-
-        if (!targetTokenID) {
-            logoutLogger.warn(
-                "Logout failed: Provided refresh token did not match any stored tokens for user"
-            );
-            return;
-        }
-        logoutLogger.info(
-            "Matching refresh token found. Proceeding to revoke."
-        );
-
-        await RefreshToken.update(
-            { isRevoked: true },
-            { where: { id: targetTokenID } }
-        );
-        logoutLogger.info("Refresh token successfully revoked in database");
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-
-        logoutLogger.error(
-            "An unexpected error occurred in handleUserLogout service",
-            {
-                error: {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                },
-            }
-        );
     }
-};
-
-export const revokeRefreshToken2 = async (
-    refreshTokenFromUser,
-    userId,
-    logoutLogger
-) => {
     try {
-        logoutLogger.info("Initiating refresh token revocation", {
-            userId,
-            action: "revoke_refresh_token_start",
+        logoutLogger.info("Initiating refresh token revocation (SHA-256)", {
+            userId: finalUserId || "unknown",
+            action: "revoke_start",
         });
 
-        const allRefreshTokenFromDB = await RefreshToken.findAll({
-            where: { ownerId: userId, isRevoked: false },
-        });
+        const tokenHash = hashToken(refreshTokenFromUser);
 
-        if (!allRefreshTokenFromDB || allRefreshTokenFromDB.length === 0) {
-            logoutLogger.warn("No active refresh tokens found", {
-                userId,
-                action: "no_active_tokens",
-                reason: "user_already_logged_out_or_expired",
-            });
-            return;
-        }
-
-        logoutLogger.info("Active refresh tokens retrieved", {
-            userId,
-            tokenCount: allRefreshTokenFromDB.length,
-            action: "tokens_found",
-        });
-
-        let targetTokenID = null;
-        const startTime = Date.now();
-
-        for (const tokenRecord of allRefreshTokenFromDB) {
-            const isMatch = await bcrypt.compare(
-                refreshTokenFromUser,
-                tokenRecord.token
-            );
-            if (isMatch) {
-                targetTokenID = tokenRecord.id;
-                break;
-            }
-        }
-
-        const comparisonDuration = Date.now() - startTime;
-
-        if (!targetTokenID) {
-            logoutLogger.warn("Token mismatch detected", {
-                userId,
-                action: "token_mismatch",
-                comparisonDuration,
-                tokensChecked: allRefreshTokenFromDB.length,
-                securityNote: "Potential token theft or replay attack",
-            });
-            return;
-        }
-
-        logoutLogger.info("Matching token identified", {
-            userId,
-            tokenId: targetTokenID,
-            comparisonDuration,
-            action: "token_matched",
-        });
-
-        await RefreshToken.update(
+        const [updatedRows] = await RefreshToken.update(
             { isRevoked: true },
-            { where: { id: targetTokenID } }
+            { where: { token: tokenHash } }
         );
+
+        if (updatedRows === 0) {
+            logoutLogger.warn(
+                "Revocation skipped: Token hash not found in DB",
+                {
+                    userId: finalUserId || "unknown",
+                    reason: "token_invalid_or_already_deleted",
+                }
+            );
+            return;
+        }
 
         logoutLogger.info("Refresh token revoked successfully", {
-            userId,
-            tokenId: targetTokenID,
-            action: "revoke_refresh_token_success",
+            userId: finalUserId || "unknown",
+            action: "revoke_success",
         });
     } catch (error) {
-        if (error instanceof AppError) {
-            logoutLogger.error("Application error during token revocation", {
-                userId,
-                action: "revoke_refresh_token_app_error",
+        const isAppError = error instanceof AppError;
+        logoutLogger.error(
+            isAppError
+                ? "Application error during revocation"
+                : "Unexpected error during revocation",
+            {
+                userId: finalUserId || "unknown",
+                action: "revoke_error",
                 errorType: error.constructor.name,
-                errorCode: error.code,
                 errorMessage: error.message,
-                errorStack:
-                    process.env.NODE_ENV === "development"
-                        ? error.stack
-                        : undefined,
-            });
-        }
-
-        logoutLogger.error("Unexpected error during token revocation", {
-            userId,
-            action: "revoke_refresh_token_unexpected_error",
-            errorType: error.name,
-            errorMessage: error.message,
-            errorStack:
-                process.env.NODE_ENV === "development"
-                    ? error.stack
-                    : undefined,
-        });
+                errorStack: !isAppError ? error.stack : undefined,
+            }
+        );
     }
 };
