@@ -316,7 +316,7 @@ export const rejectEvent = async (req, res, next) => {
     });
 
     try {
-        const { feedback } = req.body;
+        const feedback = req.body.feedback || null;
 
         controllerLogger.info("Event rejection process initiated", {
             context: {

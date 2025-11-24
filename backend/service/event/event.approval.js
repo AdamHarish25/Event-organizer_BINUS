@@ -3,44 +3,67 @@ import { createAndEmitNotification } from "../notification.service.js";
 import { sequelize } from "../../config/dbconfig.js";
 import { Event } from "../../model/index.js";
 
-export const rejectEventService = async (
+const processEventStatusChange = async ({
     eventId,
     superAdminId,
-    feedback,
-    logger
-) => {
+    targetStatus,
+    notificationType,
+    logger,
+    actionName,
+    serviceName,
+    errorMessage,
+    notFoundMessage,
+    requiredCurrentStatuses = null,
+    feedback = null,
+    getSocketConfig,
+}) => {
     try {
-        logger.info("Event rejection process started in service");
+        logger.info(`${actionName} process started in service`);
 
-        logger.info("Starting database transaction");
-        await sequelize.transaction(async (t) => {
-            const event = await Event.findOne({
-                where: { id: eventId, status: ["pending", "revised"] },
+        const result = await sequelize.transaction(async (t) => {
+            const queryOptions = {
+                where: { id: eventId },
                 transaction: t,
-            });
+                lock: t.LOCK.UPDATE,
+            };
+
+            const event = await Event.findOne(queryOptions);
 
             if (!event) {
                 logger.warn(
-                    "Rejection failed: Event not found or its status was not pending/revised"
+                    `${actionName} failed: Event not found in database`
                 );
-                throw new AppError(
-                    "Data event tidak ditemukan atau sudah diproses",
-                    404,
-                    "NOT_FOUND"
-                );
+                throw new AppError(notFoundMessage, 404, "NOT_FOUND");
             }
-            logger.info("Event to be rejected found in database", {
-                context: { currentStatus: event.status },
+
+            if (
+                requiredCurrentStatuses &&
+                !requiredCurrentStatuses.includes(event.status)
+            ) {
+                const message = `Event tidak dapat diproses karena statusnya sudah ${event.status}`;
+                logger.warn(
+                    `${actionName} failed: Invalid status. Current: ${event.status}, Required: ${requiredCurrentStatuses}`
+                );
+                throw new AppError(message, 409, "CONFLICT_STATE");
+            }
+
+            logger.info(`Event found. Processing change.`, {
+                context: {
+                    id: event.id,
+                    fromStatus: event.status,
+                    toStatus: targetStatus,
+                },
             });
 
-            await event.update({ status: "rejected" }, { transaction: t });
-            logger.info("Event status successfully updated to 'rejected'");
+            await event.update({ status: targetStatus }, { transaction: t });
+
+            const socketConfig = getSocketConfig(event);
 
             await createAndEmitNotification({
                 eventId: event.id,
                 senderId: superAdminId,
                 recipientId: event.creatorId,
-                notificationType: "event_rejected",
+                notificationType,
                 feedback,
                 payload: {
                     eventName: event.eventName,
@@ -51,22 +74,22 @@ export const rejectEventService = async (
                     speaker: event.speaker,
                     imageUrl: event.imageUrl,
                 },
-                socketConfig: {
-                    title: "Your Request has been REJECTED",
-                    message: "Please review the provided Feedback.",
-                },
+                socketConfig,
                 transaction: t,
                 logger,
             });
+            return event;
         });
 
-        logger.info("Database transaction committed successfully");
+        logger.info(`${actionName} transaction committed successfully`);
+
+        return result;
     } catch (error) {
         if (error instanceof AppError) {
             throw error;
         }
 
-        logger.error("An unexpected error occurred in rejectEvent service", {
+        logger.error(`Unexpected error in ${serviceName}`, {
             error: {
                 message: error.message,
                 stack: error.stack,
@@ -74,84 +97,54 @@ export const rejectEventService = async (
             },
         });
 
-        throw new AppError(
-            "Gagal menolak event karena masalah internal.",
-            500,
-            "INTERNAL_SERVER_ERROR"
-        );
+        throw new AppError(errorMessage, 500, "INTERNAL_SERVER_ERROR");
     }
 };
 
+export const rejectEventService = async (
+    eventId,
+    superAdminId,
+    feedback,
+    logger
+) => {
+    return processEventStatusChange({
+        eventId,
+        superAdminId,
+        targetStatus: "rejected",
+        notificationType: "event_rejected",
+        logger,
+        actionName: "Event rejection",
+        serviceName: "rejectEvent",
+        errorMessage: "Gagal menolak event karena masalah internal.",
+        notFoundMessage:
+            "Event tidak ditemukan atau status tidak valid untuk ditolak.",
+        requiredCurrentStatuses: ["pending", "revised"],
+        feedback,
+        getSocketConfig: () => ({
+            title: "Your Request has been REJECTED",
+            message: "Please review the provided Feedback.",
+        }),
+    });
+};
+
 export const approveEventService = async (eventId, superAdminId, logger) => {
-    try {
-        logger.info("Event approval process started in service");
-
-        logger.info("Starting database transaction");
-        await sequelize.transaction(async (t) => {
-            const event = await Event.findOne({
-                where: { id: eventId, status: ["pending", "revised"] },
-                transaction: t,
-            });
-
-            if (!event) {
-                logger.warn(
-                    "Approval failed: Event not found or its status was not pending/revised"
-                );
-                throw new AppError(
-                    "Data event tidak ditemukan atau sudah diproses",
-                    404,
-                    "NOT_FOUND"
-                );
-            }
-            logger.info("Event to be approved found in database", {
-                context: { currentStatus: event.status },
-            });
-
-            await event.update({ status: "approved" }, { transaction: t });
-            logger.info("Event status successfully updated to 'approved'");
-
-            await createAndEmitNotification({
-                eventId: event.id,
-                senderId: superAdminId,
-                recipientId: event.creatorId,
-                notificationType: "event_approved",
-                payload: {
-                    eventName: event.eventName,
-                    startTime: event.startTime,
-                    endTime: event.endTime,
-                    date: event.date,
-                    location: event.location,
-                    speaker: event.speaker,
-                    imageUrl: event.imageUrl,
-                },
-                socketConfig: {
-                    title: "Your Request has been APPROVED",
-                    message: `Congratulations! Your event "${event.eventName}" has been approved.`,
-                },
-                transaction: t,
-                logger,
-            });
-        });
-        logger.info("Database transaction committed successfully");
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-
-        logger.error("An unexpected error occurred in approveEvent service", {
-            error: {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-            },
-        });
-
-        throw new AppError(
-            "Gagal menyetujui event karena masalah internal.",
-            500,
-            "INTERNAL_SERVER_ERROR"
-        );
-    }
+    return processEventStatusChange({
+        eventId,
+        superAdminId,
+        targetStatus: "approved",
+        notificationType: "event_approved",
+        logger,
+        actionName: "Event approval",
+        serviceName: "approveEvent",
+        errorMessage: "Gagal menyetujui event karena masalah internal.",
+        notFoundMessage:
+            "Event tidak ditemukan atau status tidak valid untuk disetujui.",
+        requiredCurrentStatuses: ["pending", "revised"],
+        getSocketConfig: (event) => ({
+            title: "Your Request has been APPROVED",
+            message: `Congratulations! Your event "${event.eventName}" has been approved.`,
+        }),
+    });
 };
 
 export const submitEventFeedbackService = async (
@@ -160,69 +153,21 @@ export const submitEventFeedbackService = async (
     feedback,
     logger
 ) => {
-    try {
-        logger.info("Feedback sending process started in service");
-
-        logger.info("Starting database transaction");
-        await sequelize.transaction(async (t) => {
-            const event = await Event.findByPk(eventId, {
-                transaction: t,
-            });
-
-            if (!event) {
-                logger.warn("Feedback failed: Event not found in database");
-                throw new AppError("Event tidak ditemukan", 404, "NOT_FOUND");
-            }
-
-            logger.info(
-                "Event found, proceeding to update status to 'revised'"
-            );
-
-            await event.update({ status: "revised" }, { transaction: t });
-            logger.info("Event status successfully updated to 'revised'");
-
-            await createAndEmitNotification({
-                eventId,
-                senderId: superAdminId,
-                recipientId: event.creatorId,
-                notificationType: "event_revised",
-                feedback,
-                payload: {
-                    eventName: event.eventName,
-                    startTime: event.startTime,
-                    endTime: event.endTime,
-                    date: event.date,
-                    location: event.location,
-                    speaker: event.speaker,
-                    imageUrl: event.imageUrl,
-                },
-                socketConfig: {
-                    title: "Your Request requires REVISION",
-                    message: "Please review the provided Feedback",
-                },
-                transaction: t,
-                logger,
-            });
-        });
-
-        logger.info("Database transaction committed successfully");
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-
-        logger.error("An unexpected error occurred in sendFeedback service", {
-            error: {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-            },
-        });
-
-        throw new AppError(
-            "Gagal mengirim feedback karena masalah internal.",
-            500,
-            "INTERNAL_SERVER_ERROR"
-        );
-    }
+    return processEventStatusChange({
+        eventId,
+        superAdminId,
+        targetStatus: "revised",
+        notificationType: "event_revised",
+        logger,
+        actionName: "Feedback sending",
+        serviceName: "sendFeedback",
+        errorMessage: "Gagal mengirim feedback karena masalah internal.",
+        notFoundMessage: "Event tidak ditemukan atau status tidak valid.",
+        requiredCurrentStatuses: ["pending", "revised"],
+        feedback,
+        getSocketConfig: () => ({
+            title: "Your Request requires REVISION",
+            message: "Please review the provided Feedback",
+        }),
+    });
 };
