@@ -1,13 +1,17 @@
 import {
-    handleDeleteEvent,
-    saveNewEventAndNotify,
-    sendFeedback,
-    editEventService,
-    rejectEventService,
+    getEventsByCategory,
+    getPaginatedEvents,
+} from "../service/event/event.query.js";
+import {
+    createEventService,
+    updateEventService,
+    deleteEventService,
+} from "../service/event/event.action.js";
+import {
     approveEventService,
-    getCategorizedEventsService,
-    getPaginatedEventsService,
-} from "../service/event.service.js";
+    rejectEventService,
+    submitEventFeedbackService,
+} from "../service/event/event.approval.js";
 import logger from "../utils/logger.js";
 import AppError from "../utils/AppError.js";
 
@@ -22,9 +26,9 @@ export const eventViewer = async (req, res, next) => {
     });
 
     const eventDataFetchers = {
-        student: getCategorizedEventsService,
-        admin: getPaginatedEventsService,
-        super_admin: getPaginatedEventsService,
+        student: getEventsByCategory,
+        admin: getPaginatedEvents,
+        super_admin: getPaginatedEvents,
     };
 
     try {
@@ -107,7 +111,7 @@ export const createEvent = async (req, res, next) => {
             },
         });
 
-        const newEvent = await saveNewEventAndNotify(
+        const newEvent = await createEventService(
             user.id,
             req.body,
             req.file,
@@ -159,7 +163,7 @@ export const deleteEvent = async (req, res, next) => {
     try {
         controllerLogger.info("Event deletion process initiated");
 
-        await handleDeleteEvent(userId, eventId, controllerLogger);
+        await deleteEventService(userId, eventId, controllerLogger);
 
         controllerLogger.info("Event deleted successfully");
 
@@ -204,7 +208,12 @@ export const createFeedback = async (req, res, next) => {
             },
         });
 
-        await sendFeedback(eventId, user.id, feedback, controllerLogger);
+        await submitEventFeedbackService(
+            eventId,
+            user.id,
+            feedback,
+            controllerLogger
+        );
 
         controllerLogger.info("Feedback sent successfully");
 
@@ -260,7 +269,13 @@ export const editEvent = async (req, res, next) => {
             },
         });
 
-        await editEventService(eventId, adminId, data, image, controllerLogger);
+        await updateEventService(
+            eventId,
+            adminId,
+            data,
+            image,
+            controllerLogger
+        );
 
         controllerLogger.info("Event updated successfully", {
             context: { eventId },
@@ -301,7 +316,7 @@ export const rejectEvent = async (req, res, next) => {
     });
 
     try {
-        const { feedback } = req.body;
+        const feedback = req.body.feedback || null;
 
         controllerLogger.info("Event rejection process initiated", {
             context: {

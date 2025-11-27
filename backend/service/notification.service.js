@@ -1,5 +1,6 @@
 import AppError from "../utils/AppError.js";
 import { Notification } from "../model/index.js";
+import socketService from "../socket/index.js";
 
 export const getNotificationService = async (
     userId,
@@ -102,5 +103,118 @@ export const markAsReadService = async (notificationId, userId, logger) => {
             500,
             "INTERNAL_SERVER_ERROR"
         );
+    }
+};
+
+export const createAndEmitNotification = async ({
+    eventId,
+    senderId,
+    recipientId,
+    notificationType,
+    payload,
+    feedback,
+    socketConfig,
+    transaction,
+    logger,
+}) => {
+    const notificationData = {
+        eventId,
+        senderId,
+        recipientId,
+        notificationType,
+        payload,
+    };
+
+    if (feedback) {
+        notificationData.feedback = feedback;
+    }
+
+    const notification = await Notification.create(notificationData, {
+        transaction,
+    });
+
+    if (logger) {
+        logger.info("Notification record created successfully", {
+            context: { notificationId: notification.id, recipientId },
+        });
+    }
+
+    const emitSocket = () => {
+        const io = socketService.getIO();
+        io.to(recipientId).emit("new_notification", {
+            type: socketConfig?.type || notificationType,
+            title: socketConfig?.title || "New Notification",
+            message: socketConfig?.message || "You have a new notification",
+            isRead: false,
+            data: notification,
+        });
+
+        if (logger) {
+            logger.info("Socket notification emitted successfully", {
+                context: { recipientId },
+            });
+        }
+    };
+
+    if (transaction && transaction.afterCommit) {
+        transaction.afterCommit(emitSocket);
+    } else {
+        emitSocket();
+    }
+
+    return notification;
+};
+
+export const createAndEmitBroadcastNotification = async ({
+    eventId,
+    senderId,
+    recipients,
+    notificationType,
+    payload,
+    socketConfig,
+    transaction,
+    logger,
+}) => {
+    const notifications = recipients.map((recipient) => ({
+        eventId,
+        senderId,
+        recipientId: recipient.id,
+        notificationType,
+        payload,
+    }));
+
+    await Notification.bulkCreate(notifications, { transaction });
+
+    if (logger) {
+        logger.info(
+            `Notification records created for ${recipients.length} recipients`
+        );
+    }
+
+    const emitSocket = () => {
+        const io = socketService.getIO();
+        if (socketConfig?.room) {
+            io.to(socketConfig.room).emit(
+                socketConfig.eventName || "new_notification",
+                {
+                    type: notificationType,
+                    title: socketConfig.title,
+                    message: socketConfig.message,
+                    isRead: false,
+                    data: { eventId, ...payload },
+                }
+            );
+            if (logger) {
+                logger.info("Socket broadcast emitted successfully", {
+                    context: { room: socketConfig.room },
+                });
+            }
+        }
+    };
+
+    if (transaction && transaction.afterCommit) {
+        transaction.afterCommit(emitSocket);
+    } else {
+        emitSocket();
     }
 };

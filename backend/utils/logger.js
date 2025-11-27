@@ -1,7 +1,10 @@
 import winston from "winston";
 import { SPLAT } from "triple-beam";
+import path from "path";
 
 const { combine, timestamp, printf, colorize, json } = winston.format;
+
+const logDirectory = path.join(process.cwd(), "logs");
 
 const consoleFormat = printf(
     ({ level, message, timestamp, [SPLAT]: metadata }) => {
@@ -18,10 +21,12 @@ const logger = winston.createLogger({
     format: combine(timestamp(), json()),
     transports: [
         new winston.transports.File({
-            filename: "logs/error.log",
+            filename: path.join(logDirectory, "error.log"),
             level: "error",
         }),
-        new winston.transports.File({ filename: "logs/combined.log" }),
+        new winston.transports.File({
+            filename: path.join(logDirectory, "combined.log"),
+        }),
     ],
 });
 

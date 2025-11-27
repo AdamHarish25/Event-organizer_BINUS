@@ -1,22 +1,25 @@
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
-
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import getToken from "../utils/getToken.js";
 import { saveNewRefreshToken } from "../service/token.service.js";
 import { sendOTPEmail } from "../utils/emailSender.js";
 import { saveOTPToDatabase } from "../service/otp.service.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import AppError from "../utils/AppError.js";
+import { User, ResetToken } from "../model/index.js";
 import {
-    User,
-    RefreshToken,
-    BlacklistedToken,
-    ResetToken,
-} from "../model/index.js";
+    blacklistAccessToken,
+    revokeRefreshToken,
+} from "../service/token.service.js";
 import { sequelize } from "../config/dbconfig.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const BCRPT_SALT_ROUDS = 10;
-const FIVETEEN_MINUTES = 15 * 60 * 1000;
 
 dotenv.config({ path: "../.env" });
 
@@ -105,94 +108,17 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
 };
 
 export const handleUserLogout = async (token, userId, logoutLogger) => {
-    try {
-        const { accessTokenFromUser, refreshTokenFromUser } = token;
+    const accessTokenFromUser = token?.accessTokenFromUser ?? null;
+    const refreshTokenFromUser = token?.refreshTokenFromUser ?? null;
 
-        logoutLogger.info("Searching for active refresh tokens in database");
-        const allRefreshTokenFromDB = await RefreshToken.findAll({
-            where: { ownerId: userId, isRevoked: false },
-        });
+    logoutLogger.info("Starting logout process...");
 
-        if (!allRefreshTokenFromDB || allRefreshTokenFromDB.length === 0) {
-            logoutLogger.warn(
-                "Logout failed: No active refresh tokens found for user"
-            );
-            throw new AppError(
-                "Sesi tidak valid atau sudah logout.",
-                404,
-                "REFRESH_TOKEN_NOT_FOUND"
-            );
-        }
-        logoutLogger.info(
-            `Found ${allRefreshTokenFromDB.length} active refresh token(s). Starting comparison.`
-        );
+    await Promise.allSettled([
+        blacklistAccessToken(accessTokenFromUser, userId, logoutLogger),
+        revokeRefreshToken(refreshTokenFromUser, userId, logoutLogger),
+    ]);
 
-        let theRightRefreshToken;
-        for (const tokenRecord of allRefreshTokenFromDB) {
-            const isMatch = await bcrypt.compare(
-                refreshTokenFromUser,
-                tokenRecord.token
-            );
-            if (isMatch) {
-                theRightRefreshToken = tokenRecord.token;
-                break;
-            }
-        }
-
-        if (!theRightRefreshToken) {
-            logoutLogger.warn(
-                "Logout failed: Provided refresh token did not match any stored tokens for user"
-            );
-            throw new AppError(
-                "Sesi tidak valid.",
-                401,
-                "REFRESH_TOKEN_MISMATCH"
-            );
-        }
-        logoutLogger.info(
-            "Matching refresh token found. Proceeding to revoke."
-        );
-
-        await RefreshToken.update(
-            { isRevoked: true },
-            { where: { ownerId: userId, token: theRightRefreshToken } }
-        );
-        logoutLogger.info("Refresh token successfully revoked in database");
-
-        const hashedToken = await bcrypt.hash(
-            accessTokenFromUser,
-            BCRPT_SALT_ROUDS
-        );
-
-        await BlacklistedToken.create({
-            token: hashedToken,
-            userId,
-            reason: "logout",
-            expiresAt: new Date(Date.now() + FIVETEEN_MINUTES),
-        });
-        logoutLogger.info("Access token successfully added to blacklist");
-    } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
-
-        logoutLogger.error(
-            "An unexpected error occurred in handleUserLogout service",
-            {
-                error: {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                },
-            }
-        );
-
-        throw new AppError(
-            "Gagal melakukan logout karena masalah internal.",
-            500,
-            "INTERNAL_SERVER_ERROR"
-        );
-    }
+    logoutLogger.info("Logout process completed.");
 };
 
 export const requestPasswordReset = async (email, logger) => {
@@ -211,111 +137,16 @@ export const requestPasswordReset = async (email, logger) => {
         const otp = generateOTP();
         logger.info("OTP generated successfully");
 
+        const templatePath = path.join(__dirname, "../view/otp-email.html");
+
+        let htmlContent = fs.readFileSync(templatePath, "utf8");
+        htmlContent = htmlContent.replace("{{otp}}", otp);
+
         const mailOptions = {
             from: `BINUS Event Viewer <${process.env.EMAIL_USER}>`,
             to: email,
             subject: `Reset Password - Kode OTP`,
-            html: `<!DOCTYPE html>
-                    <html>
-                        <head>
-                            <meta charset="UTF-8" />
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                            <title>Reset Password</title>
-                        </head>
-                        <body
-                            style="
-                                margin: 0;
-                                padding: 0;
-                                font-family: Arial, sans-serif;
-                                background-color: #f5f5f5;
-                            "
-                        >
-                            <div
-                                style="
-                                    max-width: 600px;
-                                    margin: 0 auto;
-                                    background-color: #ffffff;
-                                    padding: 40px 20px;
-                                "
-                            >
-                                <div style="text-align: center; margin-bottom: 30px">
-                                    <h1 style="color: #333333; font-size: 24px; margin: 0">
-                                        Reset Password
-                                    </h1>
-                                </div>
-
-                                <div
-                                    style="
-                                        background-color: #f8f9fa;
-                                        padding: 20px;
-                                        border-radius: 8px;
-                                        margin-bottom: 20px;
-                                    "
-                                >
-                                    <p
-                                        style="
-                                            color: #666666;
-                                            font-size: 16px;
-                                            line-height: 1.5;
-                                            margin: 0 0 15px 0;
-                                        "
-                                    >
-                                        Kami menerima permintaan untuk mereset password akun Anda.
-                                        Gunakan kode OTP berikut untuk melanjutkan proses reset
-                                        password.
-                                    </p>
-
-                                    <div style="text-align: center; margin: 25px 0">
-                                        <div
-                                            style="
-                                                display: inline-block;
-                                                background-color: #007bff;
-                                                color: #ffffff;
-                                                padding: 15px 30px;
-                                                border-radius: 6px;
-                                                font-size: 24px;
-                                                font-weight: bold;
-                                                letter-spacing: 2px;
-                                            "
-                                        >
-                                            ${otp}
-                                        </div>
-                                    </div>
-
-                                    <p
-                                        style="
-                                            color: #666666;
-                                            font-size: 14px;
-                                            margin: 15px 0 0 0;
-                                            text-align: center;
-                                        "
-                                    >
-                                        Kode ini akan kedaluwarsa dalam <strong>5 menit</strong>
-                                    </p>
-                                </div>
-
-                                <div style="border-top: 1px solid #e9ecef; padding-top: 20px">
-                                    <p
-                                        style="
-                                            color: #999999;
-                                            font-size: 12px;
-                                            line-height: 1.4;
-                                            margin: 0;
-                                        "
-                                    >
-                                        Jika Anda tidak meminta reset password, abaikan email ini.
-                                        Password Anda akan tetap aman.
-
-                                        <br /><br />
-
-                                        Email ini dikirim secara otomatis, mohon tidak membalas
-                                        email ini.
-                                    </p>
-                                </div>
-                            </div>
-                        </body>
-                    </html>
-                    `,
+            html: htmlContent,
         };
 
         logger.info("Starting database transaction to save OTP and send email");
