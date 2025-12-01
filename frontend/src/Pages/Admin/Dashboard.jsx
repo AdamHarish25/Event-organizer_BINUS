@@ -48,13 +48,27 @@ const AdminDashboard = () => {
     if (user?.accessToken) {
       // Connect socket
       socketService.connect(user.accessToken);
-      
+
       // Listen for new notifications
       const handleNewNotification = (notification) => {
-
         // Add new notification to the top of the list
+        console.log('Socket event received:', notification);
         setNotifications(prev => [notification, ...prev]);
-        
+
+        // Update event list if notification contains event data
+        if (notification.data && notification.data.id) {
+          setAllEvents(prevEvents => {
+            const eventExists = prevEvents.some(e => e.id === notification.data.id);
+            if (eventExists) {
+              // Replace existing event
+              return prevEvents.map(e => e.id === notification.data.id ? notification.data : e);
+            } else {
+              // Add new event to the top
+              return [notification.data, ...prevEvents];
+            }
+          });
+        }
+
         // Show toast or modal for important notifications
         if (notification.type === 'event_deleted') {
           handleOpenModal('status', {
@@ -64,12 +78,12 @@ const AdminDashboard = () => {
           });
         }
       };
-      
+
       socketService.onNotification(handleNewNotification);
-      
+
       // Initial fetch
       fetchNotifications();
-      
+
       return () => {
         socketService.off('new_notification', handleNewNotification);
         socketService.disconnect();
@@ -95,10 +109,10 @@ const AdminDashboard = () => {
       setAllEvents([]);
       setPaginationInfo(null);
       // Show user-friendly error message
-      handleOpenModal('status', { 
-        variant: 'danger', 
-        title: 'Error!', 
-        message: 'Gagal memuat data event. Silakan coba lagi.' 
+      handleOpenModal('status', {
+        variant: 'danger',
+        title: 'Error!',
+        message: 'Gagal memuat data event. Silakan coba lagi.'
       });
     }
   };
@@ -133,7 +147,7 @@ const AdminDashboard = () => {
       setCurrentPage(newPage);
     }
   };
-  
+
   const handleOpenModal = (type, data = null) => setModal({ type, data });
   const handleCloseModal = () => setModal({ type: null, data: null });
 
