@@ -366,10 +366,14 @@ export const updateEventService = async (
             logger.info("New image provided. Attempting to upload...", {
                 context: { folder: fullFolderPath },
             });
-            uploadResult = await uploadPosterImage(image.buffer, {
-                folder: fullFolderPath,
-                public_id: fileName,
-            });
+            uploadResult = await uploadPosterImage(
+                image.buffer,
+                {
+                    folder: fullFolderPath,
+                    public_id: fileName,
+                },
+                logger
+            );
             logger.info("New image uploaded successfully", {
                 context: { url: uploadResult.secure_url },
             });
