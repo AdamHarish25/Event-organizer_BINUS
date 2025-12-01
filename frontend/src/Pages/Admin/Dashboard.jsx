@@ -55,6 +55,9 @@ const AdminDashboard = () => {
         console.log('Socket event received:', notification);
         setNotifications(prev => [notification, ...prev]);
 
+        // Also fetch fresh notifications to ensure consistency
+        fetchNotifications();
+
         // Update event list if notification contains event data
         if (notification.data && notification.data.id) {
           setAllEvents(prevEvents => {
@@ -91,11 +94,7 @@ const AdminDashboard = () => {
     }
   }, [user?.accessToken]);
 
-  // Fallback polling for notifications (reduced frequency since we have realtime)
-  useEffect(() => {
-    const interval = setInterval(fetchNotifications, 30000); // 30 seconds instead of 10
-    return () => clearInterval(interval);
-  }, []);
+
 
   // Fetch events dari backend dengan paginasi
   const fetchEvents = async (page = 1) => {

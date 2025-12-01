@@ -22,6 +22,16 @@ const statusIcons = {
   NEW_ADMIN: <FaUserPlus className="text-purple-500" />,
 };
 
+const statusColors = {
+  REVISION: 'bg-yellow-50',
+  REJECTED: 'bg-red-50',
+  APPROVED: 'bg-green-50',
+  PENDING: 'bg-blue-50',
+  UPDATED: 'bg-orange-50',
+  DELETED: 'bg-gray-50',
+  NEW_ADMIN: 'bg-purple-50',
+};
+
 function parsePayload(payload) {
   try {
     return typeof payload === 'string' ? JSON.parse(payload) : payload;
@@ -37,9 +47,9 @@ const FeedbackPanel = ({ feedbackList, onFeedbackClick }) => {
     const notificationType = item.notificationType || item.type;
     const status = typeToStatus[notificationType] || 'PENDING';
     const payload = parsePayload(item.payload || item.data);
-    
+
     let title, message;
-    
+
     // Handle different notification types
     if (notificationType === 'event_deleted') {
       title = item.title || 'Event Terhapus';
@@ -54,10 +64,10 @@ const FeedbackPanel = ({ feedbackList, onFeedbackClick }) => {
     } else {
       // Database notification
       title = payload.eventName || 'Event Notification';
-      message = item.feedback || 
+      message = item.feedback ||
         `Event "${payload.eventName || ''}" by ${payload.speaker || ''} at ${payload.location || ''} on ${payload.date || ''}`;
     }
-    
+
     return {
       ...item,
       status,
@@ -73,18 +83,17 @@ const FeedbackPanel = ({ feedbackList, onFeedbackClick }) => {
       <div className="space-y-4">
         {mappedList.length > 0 ? (
           mappedList.map((item, index) => (
-            <div 
-              key={item.id || `notification-${index}`} 
-              className={`flex items-start gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors ${
-                !item.isRead ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-              }`} 
+            <div
+              key={item.id || `notification-${index}`}
+              className={`flex items-start gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors ${!item.isRead ? `${statusColors[item.status] || "bg-blue-50"} border-l-4 border-blue-500` : ''
+                }`}
               onClick={() => onFeedbackClick(item)}
             >
               <div className="mt-1">{statusIcons[item.status] || <FaBell />}</div>
               <div className="flex-1">
                 <h3 className={`font-semibold ${!item.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
                   {item.title}
-                  {!item.isRead && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>}
+                  {!item.isRead && <span className={`ml-2 w-2 h-2 ${statusColors[item.status]}0 rounded-full inline-block`}></span>}
                 </h3>
                 <p className="text-sm text-gray-500">{item.message.substring(0, 80)}...</p>
                 <p className="text-xs text-gray-400 mt-1">
