@@ -5,11 +5,12 @@ import { FaQuestionCircle, FaCheckCircle, FaExclamationTriangle } from 'react-ic
 const statusVariants = {
   danger: { icon: <FaExclamationTriangle size={48} className="text-red-500" />, btn: 'bg-red-600' },
   success: { icon: <FaCheckCircle size={48} className="text-green-500" />, btn: 'bg-green-600' },
+  info: { icon: <FaQuestionCircle size={48} className="text-blue-500" />, btn: 'bg-blue-600' },
 };
 
 export const StatusModal = ({ isOpen, onClose, title, message, variant = 'success' }) => {
   if (!isOpen) return null;
-  const v = statusVariants[variant];
+  const v = statusVariants[variant] || statusVariants['success'];
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md text-center">

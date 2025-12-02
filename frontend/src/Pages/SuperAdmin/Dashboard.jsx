@@ -64,12 +64,8 @@ const SuperAdminDashboard = () => {
 
       const filtered = list.filter(n => {
         const type = (n.notificationType || '').toLowerCase();
-        let payload = {};
-        try { payload = typeof n.payload === 'string' ? JSON.parse(n.payload) : (n.payload || {}); } catch { payload = n.payload || {}; }
-        const role = (payload.role || payload.userRole || '').toString().toLowerCase();
-        const typeContainsAdmin = type.includes('admin');
-        const typeUserRegistered = type.includes('registered') || type.includes('registration') || type.includes('user_created');
-        return isWithinWindow(n) && (role === 'admin' || typeContainsAdmin || (typeUserRegistered && role === 'admin'));
+        // Filter for event proposals (created or updated)
+        return type === 'event_created' || type === 'event_updated';
       });
       setAdminNotifications(filtered);
     } catch (err) {
@@ -86,28 +82,28 @@ const SuperAdminDashboard = () => {
     if (user?.accessToken) {
       // Connect socket
       socketService.connect(user.accessToken);
-      
+
       // Listen for new notifications
       const handleNewNotification = (notification) => {
         console.log('New notification received:', notification);
         // Add new notification to the top of the list
         setAdminNotifications(prev => [notification, ...prev]);
-        
-        // Show toast for admin registration
-        if (notification.type === 'admin_registered') {
+
+        // Show toast for new event proposals
+        if (notification.type === 'event_created' || notification.type === 'event_updated') {
           setModal({
             type: 'status',
             data: {
-              variant: 'success',
-              title: 'Admin Baru Terdaftar',
-              message: notification.message
+              variant: 'info',
+              title: 'New Event Proposal',
+              message: notification.message || 'A new event request has been submitted.'
             }
           });
         }
       };
-      
+
       socketService.onNotification(handleNewNotification);
-      
+
       return () => {
         socketService.off('new_notification', handleNewNotification);
         socketService.disconnect();
@@ -133,7 +129,7 @@ const SuperAdminDashboard = () => {
     }
     setFilteredEvents(processed);
   }, [searchTerm, statusFilter, allEvents]);
-  
+
   const handlePageChange = (newPage) => {
     if (paginationInfo && newPage > 0 && newPage <= paginationInfo.totalPages) {
       setCurrentPage(newPage);
@@ -187,7 +183,7 @@ const SuperAdminDashboard = () => {
       }
     });
   };
-  
+
   const handleFeedback = (eventId, eventName) => {
     setModal({
       type: 'textinput',
@@ -219,25 +215,28 @@ const SuperAdminDashboard = () => {
     setSelectedEvent(null);
   };
 
-  // Klik notifikasi pendaftaran admin: tampilkan detail ringkas
+  // Klik notifikasi: tampilkan detail event proposal
   const handleAdminNotifClick = (n) => {
     let payload = {};
-    try { 
-      payload = typeof n.payload === 'string' ? JSON.parse(n.payload) : (n.payload || n.data || {}); 
-    } catch { 
-      payload = n.payload || n.data || {}; 
+    try {
+      payload = typeof n.payload === 'string' ? JSON.parse(n.payload) : (n.payload || n.data || {});
+    } catch {
+      payload = n.payload || n.data || {};
     }
-    
-    const name = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || payload.name || 'Admin Baru';
-    const email = payload.email || '-';
-    const registeredAt = payload.registeredAt ? new Date(payload.registeredAt).toLocaleString('id-ID') : 'Baru saja';
-    
+
+    // Check if it's an event proposal
+    const eventName = payload.eventName || 'Unknown Event';
+    const speaker = payload.speaker || '-';
+    const date = payload.date || '-';
+    const location = payload.location || '-';
+    const description = payload.description || '-';
+
     setModal({
       type: 'status',
       data: {
-        variant: 'success',
-        title: 'Detail Admin Baru',
-        message: `Nama: ${name}\nEmail: ${email}\nTerdaftar: ${registeredAt}`,
+        variant: 'info',
+        title: 'Detail Event Proposal',
+        message: `Event: ${eventName}\nSpeaker: ${speaker}\nDate: ${date}\nLocation: ${location}\n\nDescription: ${description}`,
       }
     });
   };
@@ -245,8 +244,8 @@ const SuperAdminDashboard = () => {
   return (
     <div className="bg-gray-100 min-h-screen">
       <MainHeader pageTitle="SUPER ADMIN" />
-      <main className="p-8">
-        <div className="bg-white p-6 rounded-lg shadow-lg">
+      <main className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-bold mb-4">Event Approval</h2>
           <div className="flex justify-between mb-4">
             <input
@@ -280,8 +279,8 @@ const SuperAdminDashboard = () => {
             </thead>
             <tbody>
               {filteredEvents.map(event => (
-                <tr 
-                  key={event.id} 
+                <tr
+                  key={event.id}
                   className="hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => handleEventClick(event)}
                 >
@@ -310,7 +309,13 @@ const SuperAdminDashboard = () => {
             </div>
           )}
         </div>
-        
+
+        <div className="lg:col-span-1">
+          <FeedbackPanel
+            feedbackList={adminNotifications}
+            onFeedbackClick={handleAdminNotifClick}
+          />
+        </div>
       </main>
       <StatusModal
         isOpen={modal.type === 'status'}

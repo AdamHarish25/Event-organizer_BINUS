@@ -57,6 +57,11 @@ const FeedbackPanel = ({ feedbackList, onFeedbackClick }) => {
     } else if (notificationType === 'admin_registered') {
       title = item.title || 'Admin Baru Terdaftar';
       message = item.message || `${payload.firstName || ''} ${payload.lastName || ''} telah mendaftar sebagai Admin.`;
+    } else if (notificationType === 'event_created' || notificationType === 'event_updated') {
+      // Custom message for new/edited event proposals
+      title = item.title || 'New Event Request';
+      const eventName = payload.eventName || 'Unknown Event';
+      message = `A new Request has been submitted: ${eventName} has submitted a new request, Please review it.`;
     } else if (item.title && item.message) {
       // Realtime notification from socket
       title = item.title;
