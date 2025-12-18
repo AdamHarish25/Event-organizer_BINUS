@@ -77,6 +77,13 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // Ref to keep track of current page without re-triggering socket connection
+  const currentPageRef = React.useRef(currentPage);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
   // Socket connection and realtime notifications
   useEffect(() => {
     if (user?.accessToken) {
@@ -86,29 +93,34 @@ const SuperAdminDashboard = () => {
       // Listen for new notifications
       const handleNewNotification = (notification) => {
         console.log('New notification received:', notification);
-        // Add new notification to the top of the list
-        setAdminNotifications(prev => [notification, ...prev]);
 
-        // Also fetch fresh notifications to ensure consistency
+        // Refresh notifications list from server
         fetchAdminNotifications();
+
+        // Refresh events list on current page
+        fetchEvents(currentPageRef.current);
 
         // Show toast for new event proposals
         if (notification.type === 'event_created' || notification.type === 'event_updated') {
+          // Optional: You can remove the modal if you just want the data to update silently, 
+          // but keeping it helps visibility.
           setModal({
             type: 'status',
             data: {
               variant: 'info',
-              title: 'New Event Proposal',
-              message: notification.message || 'A new event request has been submitted.'
+              title: 'Update Received',
+              message: notification.message || 'Data events telah diperbarui.'
             }
           });
         }
       };
 
       socketService.onNotification(handleNewNotification);
+      socketService.onEventUpdated(handleNewNotification);
 
       return () => {
         socketService.off('new_notification', handleNewNotification);
+        socketService.off('eventUpdated', handleNewNotification);
         socketService.disconnect();
       };
     }

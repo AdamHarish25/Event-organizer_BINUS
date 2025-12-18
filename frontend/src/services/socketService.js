@@ -53,9 +53,9 @@ class SocketService {
   }
 
   // Listen for event status updates
-  onEventUpdate(callback) {
+  onEventUpdated(callback) {
     if (this.socket) {
-      this.socket.on('eventUpdate', callback);
+      this.socket.on('eventUpdated', callback);
     }
   }
 
