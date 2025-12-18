@@ -98,7 +98,7 @@ const FeedbackPanel = ({ feedbackList, onFeedbackClick }) => {
               <div className="flex-1">
                 <h3 className={`font-semibold ${!item.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
                   {item.title}
-                  {!item.isRead && <span className={`ml-2 w-2 h-2 ${statusColors[item.status]}0 rounded-full inline-block`}></span>}
+                  {!item.isRead && <span className={`ml-2 w-2 h-2 ${statusColors[item.status] + "0" || "bg-blue-500"} rounded-full inline-block`}></span>}
                 </h3>
                 <p className="text-sm text-gray-500">{item.message.substring(0, 80)}...</p>
                 <p className="text-xs text-gray-400 mt-1">

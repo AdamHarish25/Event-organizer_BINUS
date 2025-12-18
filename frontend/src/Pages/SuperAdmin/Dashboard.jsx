@@ -89,6 +89,9 @@ const SuperAdminDashboard = () => {
         // Add new notification to the top of the list
         setAdminNotifications(prev => [notification, ...prev]);
 
+        // Also fetch fresh notifications to ensure consistency
+        fetchAdminNotifications();
+
         // Show toast for new event proposals
         if (notification.type === 'event_created' || notification.type === 'event_updated') {
           setModal({
@@ -114,8 +117,6 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     fetchEvents(currentPage);
     fetchAdminNotifications();
-    const interval = setInterval(fetchAdminNotifications, 30000); // Reduced frequency due to realtime
-    return () => clearInterval(interval);
   }, [currentPage]);
 
   useEffect(() => {

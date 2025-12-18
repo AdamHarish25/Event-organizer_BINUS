@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import EventFullscreenModal from "./EventFullscreenModal";
 
 function EventCard({ event, onFullscreen }) {
+
+
+
+
+
   return (
     <div className="bg-white shadow-lg rounded-lg overflow-hidden grid grid-cols-2 gap-5 relative group">
-      <img 
-        src={event.image || '/api/placeholder/400/300'} 
-        alt={event.title} 
+      <img
+        src={event.image || '/api/placeholder/400/300'}
+        alt={event.title}
         className="w-full h-60 object-cover object-top"
         onError={(e) => {
           e.target.src = '/api/placeholder/400/300';
@@ -38,11 +43,11 @@ function EventCard({ event, onFullscreen }) {
 const ITEMS_PER_PAGE = 4;
 
 // --- PERBAIKAN: Gunakan prop `carouselData` ---
-export default function EventCarousel({ carouselData }) { 
+export default function EventCarousel({ carouselData }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
-  
+
   // Pastikan carouselData adalah array sebelum menghitung totalSlides
   const totalSlides = Array.isArray(carouselData) ? Math.ceil(carouselData.length / ITEMS_PER_PAGE) : 0;
 
@@ -80,9 +85,9 @@ export default function EventCarousel({ carouselData }) {
             .map((event, index) => {
               const globalIndex = currentIndex * ITEMS_PER_PAGE + index;
               return (
-                <EventCard 
-                  key={index} 
-                  event={event} 
+                <EventCard
+                  key={index}
+                  event={event}
                   onFullscreen={() => openFullscreen(globalIndex)}
                 />
               );
@@ -106,7 +111,7 @@ export default function EventCarousel({ carouselData }) {
           </button>
         </>
       )}
-      
+
       <EventFullscreenModal
         events={carouselData}
         isOpen={isFullscreenOpen}
