@@ -6,7 +6,6 @@ import authService from '../../services/authService';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { loading } = useAuth();
-
   const location = useLocation();
 
   if (loading) {
@@ -17,14 +16,16 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     );
   }
 
-  if (!authService.isAuthenticated()) {
+  const isAuthenticated = authService.isAuthenticated();
+  const userRole = authService.getUserRole();
+  
+  if (!isAuthenticated) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(authService.getUserRole())) {
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
     return <Navigate to="/unauthorized" replace />;
   }
-
   return children;
 };
 

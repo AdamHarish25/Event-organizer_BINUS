@@ -12,10 +12,16 @@ apiClient.interceptors.request.use(
   (config) => {
     const userString = localStorage.getItem('user');
     if (userString) {
-      // Pastikan nama properti token dari backend adalah 'accessToken'
-      const token = JSON.parse(userString)?.accessToken; 
-      if (token) {
-        config.headers['Authorization'] = 'Bearer ' + token;
+      try {
+        const userData = JSON.parse(userString);
+        const token = userData?.accessToken;
+        if (token) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+          console.log('Token attached to request:', token.substring(0, 20) + '...');
+        }
+      } catch (error) {
+        console.error('Error parsing user data from localStorage:', error);
+        localStorage.removeItem('user'); // Hapus data yang corrupt
       }
     }
     return config;

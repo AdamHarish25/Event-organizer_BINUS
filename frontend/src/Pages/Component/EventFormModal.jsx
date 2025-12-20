@@ -10,6 +10,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
     startTime: '',
     endTime: '',
     speaker: '',
+    description: '',
     image: null
   });
   const [errors, setErrors] = useState({});
@@ -29,12 +30,13 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
         startTime: eventToEdit.startTime || '',
         endTime: eventToEdit.endTime || '',
         speaker: eventToEdit.speaker || '',
+        description: eventToEdit.description || '',
         image: null
       });
       setPreviewImageSrc(eventToEdit.imageUrl || null);
     } else {
       // Reset semua state saat modal ditutup atau dalam mode 'New Event'
-      setFormData({ eventName: '', location: '', date: '', startTime: '', endTime: '', speaker: '', image: null });
+      setFormData({ eventName: '', location: '', date: '', startTime: '', endTime: '', speaker: '', description: '', image: null });
       // Clean up previous object URL before setting to null
       if (previewImageSrc && previewImageSrc.startsWith('blob:')) {
         URL.revokeObjectURL(previewImageSrc);
@@ -56,6 +58,23 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
 
     if (name === 'image' && files && files[0]) {
       const file = files[0];
+      
+      // Validate file format
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Image Formats are not fit to our requirements');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
+      // Validate file size (2MB = 2 * 1024 * 1024 bytes)
+      const maxSize = 2 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert('Image is exceeding 2MB limit');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
       setFormData(prev => ({ ...prev, image: file }));
       
       // Clean up previous object URL before creating new one
@@ -65,9 +84,8 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
       
       setPreviewImageSrc(URL.createObjectURL(file));
       
-      // Validate image
-      const imageErrors = validateImage(file, !isEditMode);
-      setErrors(prev => ({ ...prev, image: imageErrors }));
+      // Clear any previous image errors since validation passed
+      setErrors(prev => ({ ...prev, image: [] }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
       
@@ -140,6 +158,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
     fd.append('endTime', formData.endTime);
     fd.append('location', formData.location.trim());
     if (formData.speaker) fd.append('speaker', formData.speaker.trim());
+    if (formData.description) fd.append('description', formData.description.trim());
     if (formData.image) fd.append('image', formData.image);
     onSave(fd);
   };
@@ -173,6 +192,20 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
               <label htmlFor="eventName" className="block text-sm font-medium text-gray-600">Event Name *</label>
               <input type="text" name="eventName" id="eventName" value={formData.eventName} onChange={handleChange} className={`mt-1 w-full rounded-lg border px-4 py-2 focus:ring-blue-500 ${errors.eventName?.length ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'}`} />
               {errors.eventName?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
+            </div>
+
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-600">Description</label>
+              <textarea 
+                name="description" 
+                id="description" 
+                value={formData.description} 
+                onChange={handleChange} 
+                rows={3}
+                placeholder="Describe the event details..."
+                className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500 resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">Max 5000 characters</p>
             </div>
 
 
@@ -214,7 +247,8 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
               <label htmlFor="image" className="block text-sm font-medium text-gray-600">Poster {!isEditMode && '*'}</label>
               <input type="file" name="image" id="image" onChange={handleChange} accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" className={`mt-1 w-full text-sm file:mr-4 file:rounded-full file:border-0 file:py-2 file:px-4 file:text-sm file:font-semibold hover:file:bg-blue-100 ${errors.image?.length ? 'file:bg-red-50 file:text-red-700' : 'file:bg-blue-50 file:text-blue-700'}`} />
               {errors.image?.map((error, idx) => <p key={idx} className="text-red-500 text-xs mt-1">{error}</p>)}
-              <p className="text-xs text-gray-500 mt-1">Max 10MB. Formats: JPEG, JPG, PNG, GIF, WebP</p>
+              <p className="text-xs text-gray-500 mt-1">Max 2MB. Formats: JPEG, JPG, PNG, GIF, WebP</p>
+              <p className="text-xs text-gray-500 mt-1">Tips: Compress your image before uploading here ( https://squoosh.app/ ).</p>
             </div>
 
             {/* Tombol Toggle Pratinjau */}

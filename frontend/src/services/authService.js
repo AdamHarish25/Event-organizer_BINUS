@@ -12,12 +12,21 @@ const login = async (email, password) => {
       password,
     });
 
-    // Backend returns: { message, userId, role, accessToken }
-    if (response.data.accessToken) {
-      localStorage.setItem('user', JSON.stringify(response.data));
+    // Backend returns: { message, user: {id, name, email, role}, accessToken }
+    if (response.data.accessToken && response.data.user) {
+      // Simpan data user dengan struktur yang konsisten
+      const userData = {
+        ...response.data.user,
+        accessToken: response.data.accessToken
+      };
+      localStorage.setItem('user', JSON.stringify(userData));
+      console.log('User data saved to localStorage:', userData);
     }
 
-    return response.data;
+    return {
+      ...response.data.user,
+      accessToken: response.data.accessToken
+    };
   } catch (error) {
     console.error("Login Error:", error.response?.data || error.message);
     throw error;
@@ -111,16 +120,34 @@ const resetPassword = async (email, password, resetToken) => {
 // --- Helper Functions (Tidak ada perubahan) ---
 const getCurrentUser = () => {
   const userString = localStorage.getItem('user');
-  return userString ? JSON.parse(userString) : null;
+  if (!userString) {
+    console.log('No user data in localStorage');
+    return null;
+  }
+  
+  try {
+    const userData = JSON.parse(userString);
+    console.log('Current user data:', userData);
+    return userData;
+  } catch (error) {
+    console.error('Error parsing user data:', error);
+    localStorage.removeItem('user'); // Hapus data yang corrupt
+    return null;
+  }
 };
 
 const isAuthenticated = () => {
-  return !!getCurrentUser();
+  const user = getCurrentUser();
+  const hasToken = !!(user?.accessToken);
+  console.log('Authentication check:', { hasUser: !!user, hasToken });
+  return !!user && hasToken;
 };
 
 const getUserRole = () => {
   const user = getCurrentUser();
-  return user?.role || null;
+  const role = user?.role || null;
+  console.log('User role:', role);
+  return role;
 };
 
 const isAdmin = () => {

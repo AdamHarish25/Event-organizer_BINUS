@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
     const currentUser = authService.getCurrentUser();
     if (currentUser) {
       setUser(currentUser);
-      console.log('User loaded from localStorage:', currentUser);
+
     }
     setLoading(false);
   }, []);

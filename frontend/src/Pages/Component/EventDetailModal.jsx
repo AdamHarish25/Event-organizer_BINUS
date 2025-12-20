@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaMicrophone, FaUser, FaTimes } from 'react-icons/fa';
 
 const EventDetailModal = ({ isOpen, onClose, event, onApprove, onReject, onRevise }) => {
+  const [extendImage, setExtendImage] = useState(false);
+
   if (!isOpen || !event) return null;
 
   const formatDate = (dateString) => {
@@ -45,12 +47,18 @@ const EventDetailModal = ({ isOpen, onClose, event, onApprove, onReject, onRevis
         <div className="p-6">
           {/* Event Image */}
           {event.imageUrl && (
-            <div className="mb-6">
+            <div className="mb-6 relative group cursor-pointer" onClick={() => setExtendImage(!extendImage)}>
               <img
                 src={event.imageUrl}
                 alt={event.eventName}
-                className="w-full h-48 object-cover rounded-lg shadow-md"
+                className={`w-full h-48 object-cover rounded-lg shadow-md transition-all duration-300 ${extendImage ? 'h-auto' : 'max-h-48'}`}
               />
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 rounded-lg flex items-center justify-center">
+                <span className="text-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  Click to {extendImage ? 'shrink' : 'expand'} image
+                </span>
+              </div>
             </div>
           )}
 
@@ -112,6 +120,14 @@ const EventDetailModal = ({ isOpen, onClose, event, onApprove, onReject, onRevis
                   <p className="text-sm text-gray-500">{event.creator.email}</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Description */}
+          {event.description && (
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">Description</h4>
+              <p className="text-gray-700 whitespace-pre-line">{event.description}</p>
             </div>
           )}
 
