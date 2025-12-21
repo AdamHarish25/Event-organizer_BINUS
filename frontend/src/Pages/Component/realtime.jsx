@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const RealtimeClock = () => {
+const RealtimeClock = ({ className = "text-white" }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -12,7 +12,7 @@ const RealtimeClock = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-3 text-white">
+    <div className={`flex items-center gap-3 ${className}`}>
       <p>{time.toLocaleDateString()}</p>
       <h1 className="text-2xl font-semibold">{time.toLocaleTimeString()}</h1>
     </div>

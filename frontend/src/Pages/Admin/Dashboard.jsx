@@ -9,6 +9,8 @@ import { StatusModal } from '../Component/StatusModal';
 import { createEvent, editEvent, deleteEvent, getEvents } from '../../services/eventService';
 import notificationService from '../../services/notificationService';
 import socketService from '../../services/socketService';
+import RealtimeClock from '../Component/realtime';
+import LoadingModal from '../Component/LoadingModal';
 
 
 const AdminDashboard = () => {
@@ -32,7 +34,7 @@ const AdminDashboard = () => {
     setNotifLoading(true);
     setNotifError(null);
     try {
-      const res = await notificationService.getNotifications();
+      const res = await notificationService.getNotifications(1, 80);
       setNotifications(res.data || []); // Consistent data access
     } catch (err) {
       setNotifications([]);
@@ -51,12 +53,41 @@ const AdminDashboard = () => {
 
       // Listen for new notifications
       const handleNewNotification = (notification) => {
-        // Add new notification to the top of the list
+        // Add new notification to the top of the list immediately (Optimistic UI)
         console.log('Socket event received:', notification);
-        setNotifications(prev => [notification, ...prev]);
 
-        // Also fetch fresh notifications to ensure consistency
-        fetchNotifications();
+        const newNotif = {
+          id: `temp-${Date.now()}`,
+          notificationType: notification.type,
+          title: notification.title,
+          message: notification.message,
+          payload: notification.data || {},
+          createdAt: new Date().toISOString(),
+          isRead: false
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+
+        // Update event list if notification contains event data (Optimistic)
+        if (notification.data && (notification.data.id || notification.data.eventId)) {
+          const eventData = notification.data;
+          const eventId = eventData.id || eventData.eventId;
+
+          setAllEvents(prevEvents => {
+            const eventExists = prevEvents.some(e => e.id === eventId);
+            if (eventExists) {
+              return prevEvents.map(e => e.id === eventId ? { ...e, ...eventData } : e);
+            } else {
+              // Only add if it belongs to this admin (filtering might be tricky here without creatorId, 
+              // but purely optimistic addition is usually safer to just refresh)
+              return prevEvents;
+            }
+          });
+        }
+
+        // Also fetch fresh notifications to ensure consistency (simulated delay for DB commit)
+        setTimeout(() => {
+          fetchNotifications();
+        }, 1000);
 
         // Update event list if notification contains event data
         if (notification.data && notification.data.id) {
@@ -227,14 +258,19 @@ const AdminDashboard = () => {
 
   const handleDeleteClick = (eventId) => {
     setActionToConfirm(() => async () => {
+      handleCloseModal();
+      handleOpenModal('loading', { message: 'Deleting event...' });
       try {
         await deleteEvent(eventId);
         await fetchEvents(currentPage);
-        handleCloseModal();
-        setTimeout(() => handleOpenModal('status', { variant: 'danger', title: 'Deleted!', message: 'Event berhasil dihapus.' }), 100);
+
+        setTimeout(() => {
+          handleOpenModal('status', { variant: 'danger', title: 'Deleted!', message: 'Event berhasil dihapus.' });
+        }, 500);
       } catch (err) {
-        handleCloseModal();
-        setTimeout(() => handleOpenModal('status', { variant: 'danger', title: 'Error!', message: 'Gagal menghapus event.' }), 100);
+        setTimeout(() => {
+          handleOpenModal('status', { variant: 'danger', title: 'Error!', message: 'Gagal menghapus event.' });
+        }, 500);
       }
     });
     handleOpenModal('confirm-delete');
@@ -242,18 +278,34 @@ const AdminDashboard = () => {
 
   const handleSaveEvent = (formData) => {
     setActionToConfirm(() => async () => {
+      // Close confirmation modal first
+      handleCloseModal();
+
+      // Open loading modal immediately
+      handleOpenModal('loading');
+
       try {
         if (modal.data?.id) {
-          await editEvent(modal.data.id, formData);
+          // If the event was under revision, replace it by creating fresh and deleting old
+          if (modal.data.status && modal.data.status.toLowerCase() === 'revised') {
+            await createEvent(formData);
+            await deleteEvent(modal.data.id);
+          } else {
+            await editEvent(modal.data.id, formData);
+          }
         } else {
           await createEvent(formData);
         }
         await fetchEvents(currentPage);
-        handleCloseModal();
-        setTimeout(() => handleOpenModal('status', { variant: 'success', title: 'Success!', message: 'Event berhasil disimpan.' }), 100);
+
+        // Slight delay to ensure the user sees the loading state or for smooth transition
+        setTimeout(() => {
+          handleOpenModal('status', { variant: 'success', title: 'Success!', message: 'Event berhasil disimpan.' });
+        }, 500);
       } catch (err) {
-        handleCloseModal();
-        setTimeout(() => handleOpenModal('status', { variant: 'danger', title: 'Error!', message: 'Gagal menyimpan event.' }), 100);
+        setTimeout(() => {
+          handleOpenModal('status', { variant: 'danger', title: 'Error!', message: 'Gagal menyimpan event.' });
+        }, 500);
       }
     });
     handleOpenModal('confirm-save');
@@ -296,6 +348,8 @@ const AdminDashboard = () => {
             events={filteredEvents}
             onEdit={handleEditEvent}
             onDelete={handleDeleteClick}
+            currentPage={currentPage}
+            pageSize={paginationInfo?.pageSize || 10}
           />
           {paginationInfo && paginationInfo.totalPages > 1 && (
             <div className="mt-4 flex justify-center items-center gap-2">
@@ -309,7 +363,14 @@ const AdminDashboard = () => {
             </div>
           )}
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-lg flex justify-between items-center">
+            <div>
+              <h3 className="text-gray-500 font-medium text-sm">Target Time</h3>
+              <p className="text-xs text-gray-400">Asia/Jakarta</p>
+            </div>
+            <RealtimeClock className="text-gray-800" />
+          </div>
           <FeedbackPanel feedbackList={notifications} onFeedbackClick={handleNotificationClick} />
         </div>
       </main>
@@ -342,6 +403,10 @@ const AdminDashboard = () => {
         title={modal.data?.title}
         message={modal.data?.message}
         variant={modal.data?.variant}
+      />
+      <LoadingModal
+        isOpen={modal.type === 'loading'}
+        message={modal.data?.message || "Processing..."}
       />
 
     </div>

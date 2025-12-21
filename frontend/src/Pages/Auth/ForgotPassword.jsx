@@ -16,18 +16,18 @@ const ForgotPassword = () => {
     e.preventDefault();
     setError('');
     setMessage('');
-    
+
     // Validate email using backend rules
     const emailValidationErrors = validateEmail(email);
     setEmailErrors(emailValidationErrors);
-    
+
     if (emailValidationErrors.length > 0) {
       setError('Please fix the email field.');
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const res = await authService.forgotPassword(email);
       setMessage(res.message || 'Kode OTP telah dikirim ke email Anda.');
@@ -57,7 +57,7 @@ const ForgotPassword = () => {
           {error && <p className="text-red-200 text-sm">{error}</p>}
           {message && <p className="text-green-200 text-sm">{message}</p>}
           <div className="flex justify-between items-center">
-            <Link className="underline text-sm" to="/login/admin">Kembali ke Login</Link>
+            <Link className="underline text-sm" to={".."}>Kembali ke Login</Link>
             <button type="submit" className="w-fit py-3 px-8 bg-blue-700 rounded-md hover:bg-blue-800 transition" disabled={loading}>
               {loading ? 'Mengirim...' : 'Kirim OTP'}
             </button>

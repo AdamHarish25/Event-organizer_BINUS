@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FaEye, FaPenSquare, FaCircle } from 'react-icons/fa';
 import { useAuth } from '../Auth/AuthContext';
 import MainHeader from '../Component/MainHeader';
 import { StatusModal } from '../Component/StatusModal';
@@ -9,6 +10,8 @@ import FeedbackPanel from '../Component/FeedbackPanel';
 import { approveEvent, rejectEvent, getEvents, sendFeedback } from '../../services/eventService';
 import notificationService from '../../services/notificationService';
 import socketService from '../../services/socketService';
+import RealtimeClock from '../Component/realtime';
+import LoadingModal from '../Component/LoadingModal';
 
 const SuperAdminDashboard = () => {
   const { user } = useAuth();
@@ -47,7 +50,7 @@ const SuperAdminDashboard = () => {
     setAdminNotifLoading(true);
     setAdminNotifError(null);
     try {
-      const res = await notificationService.getNotifications();
+      const res = await notificationService.getNotifications(1, 80);
       const list = res.data || [];
       // Debug: lihat tipe-tipe apa saja yang datang
       console.debug('Admin registration notifications raw:', list.map(n => ({ type: n.notificationType, payload: n.payload })));
@@ -94,25 +97,56 @@ const SuperAdminDashboard = () => {
       const handleNewNotification = (notification) => {
         console.log('New notification received:', notification);
 
-        // Refresh notifications list from server
-        fetchAdminNotifications();
+        // 1. Optimistic Notification Update
+        const newNotif = {
+          id: `temp-${Date.now()}`,
+          notificationType: notification.type,
+          title: notification.title,
+          message: notification.message,
+          payload: notification.data || {},
+          createdAt: new Date().toISOString(),
+          isRead: false
+        };
+        setAdminNotifications(prev => [newNotif, ...prev]);
 
-        // Refresh events list on current page
-        fetchEvents(currentPageRef.current);
-
-        // Show toast for new event proposals
+        // 2. Optimistic Event Update (Table)
         if (notification.type === 'event_created' || notification.type === 'event_updated') {
-          // Optional: You can remove the modal if you just want the data to update silently, 
-          // but keeping it helps visibility.
-          setModal({
-            type: 'status',
-            data: {
-              variant: 'info',
-              title: 'Update Received',
-              message: notification.message || 'Data events telah diperbarui.'
+          const rawData = notification.data || {};
+          const eventId = rawData.eventId || rawData.id;
+
+          // Construct event object for table
+          const optimisticEvent = {
+            id: eventId,
+            eventName: rawData.eventName || 'New Event',
+            location: rawData.location || '-',
+            date: rawData.date || '-',
+            startTime: rawData.startTime || '-',
+            endTime: rawData.endTime || '-',
+            speaker: rawData.speaker || '-',
+            description: rawData.description || '',
+            status: 'pending', // Usually updates reset to pending
+            imageUrl: rawData.imageUrl || null,
+          };
+
+          setAllEvents(prevEvents => {
+            const exists = prevEvents.find(e => e.id === eventId);
+            if (exists) {
+              return prevEvents.map(e => e.id === eventId ? { ...e, ...optimisticEvent } : e);
+            } else {
+              return [optimisticEvent, ...prevEvents];
             }
           });
+
+          // Show Event Detail Modal directly
+          setSelectedEvent(optimisticEvent);
+          setShowEventDetail(true);
         }
+
+        // 3. Background Sync (delayed to ensure DB commit)
+        setTimeout(() => {
+          fetchAdminNotifications();
+          fetchEvents(currentPageRef.current);
+        }, 1000);
       };
 
       socketService.onNotification(handleNewNotification);
@@ -166,13 +200,20 @@ const SuperAdminDashboard = () => {
         title: 'Approve Event',
         message: `Apakah Anda yakin ingin menyetujui event "${eventName || ''}"?`,
         variant: 'success',
-        onConfirm: () => {
-          handleAction(
-            () => approveEvent(eventId),
-            'Event berhasil disetujui.',
-            'Gagal menyetujui event.'
-          );
-          setModal({ type: null, data: null });
+        onConfirm: async () => {
+          setModal({ type: 'loading', data: { message: 'Approving event...' } });
+          try {
+            await approveEvent(eventId);
+            await fetchEvents(currentPage);
+
+            setTimeout(() => {
+              setModal({ type: 'status', data: { variant: 'success', title: 'Success!', message: 'Event berhasil disetujui.' } });
+            }, 500);
+          } catch (err) {
+            setTimeout(() => {
+              setModal({ type: 'status', data: { variant: 'danger', title: 'Error!', message: err.message || 'Gagal menyetujui event.' } });
+            }, 500);
+          }
         }
       }
     });
@@ -185,13 +226,20 @@ const SuperAdminDashboard = () => {
         title: 'Tolak Event',
         label: 'Alasan Penolakan',
         placeholder: 'Tuliskan alasan penolakan...',
-        onSubmit: (feedback) => {
-          handleAction(
-            () => rejectEvent(eventId, feedback),
-            'Event berhasil ditolak.',
-            'Gagal menolak event.'
-          );
-          setModal({ type: null, data: null });
+        onSubmit: async (feedback) => {
+          setModal({ type: 'loading', data: { message: 'Rejecting event...' } });
+          try {
+            await rejectEvent(eventId, feedback);
+            await fetchEvents(currentPage);
+
+            setTimeout(() => {
+              setModal({ type: 'status', data: { variant: 'success', title: 'Success!', message: 'Event berhasil ditolak.' } });
+            }, 500);
+          } catch (err) {
+            setTimeout(() => {
+              setModal({ type: 'status', data: { variant: 'danger', title: 'Error!', message: err.message || 'Gagal menolak event.' } });
+            }, 500);
+          }
         }
       }
     });
@@ -204,13 +252,20 @@ const SuperAdminDashboard = () => {
         title: 'Kirim Feedback Revisi',
         label: 'Catatan Revisi',
         placeholder: 'Tuliskan catatan revisi untuk admin/event owner...',
-        onSubmit: (feedback) => {
-          handleAction(
-            () => sendFeedback(eventId, feedback),
-            'Feedback revisi berhasil dikirim.',
-            'Gagal mengirim feedback.'
-          );
-          setModal({ type: null, data: null });
+        onSubmit: async (feedback) => {
+          setModal({ type: 'loading', data: { message: 'Sending feedback...' } });
+          try {
+            await sendFeedback(eventId, feedback);
+            await fetchEvents(currentPage);
+
+            setTimeout(() => {
+              setModal({ type: 'status', data: { variant: 'success', title: 'Success!', message: 'Feedback revisi berhasil dikirim.' } });
+            }, 500);
+          } catch (err) {
+            setTimeout(() => {
+              setModal({ type: 'status', data: { variant: 'danger', title: 'Error!', message: err.message || 'Gagal mengirim feedback.' } });
+            }, 500);
+          }
         }
       }
     });
@@ -280,34 +335,104 @@ const SuperAdminDashboard = () => {
               <option value="rejected">Rejected</option>
             </select>
           </div>
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-2">Event Name</th>
-                <th>Location</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="text-gray-600 border-b border-gray-200">
+                <th className="p-3 font-semibold">Name</th>
+                <th className="p-3 font-semibold">Date</th>
+                <th className="p-3 font-semibold">Location</th>
+                <th className="p-3 font-semibold text-center">Status</th>
+                <th className="p-3 font-semibold text-center">Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredEvents.map(event => (
-                <tr
-                  key={event.id}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => handleEventClick(event)}
-                >
-                  <td className="p-2 font-medium text-blue-600 hover:text-blue-800">{event.eventName}</td>
-                  <td>{event.location}</td>
-                  <td>{event.date}</td>
-                  <td><span className={`px-2 py-1 rounded-full text-xs font-semibold ${event.status === 'approved' ? 'bg-green-200 text-green-800' : event.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : event.status === 'revised' ? 'bg-orange-200 text-orange-800' : 'bg-red-200 text-red-800'}`}>{event.status}</span></td>
-                  <td className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => handleApprove(event.id, event.eventName)} className="text-green-500 font-bold hover:text-green-700">Approve</button>
-                    <button onClick={() => handleReject(event.id, event.eventName)} className="text-red-500 font-bold hover:text-red-700">Reject</button>
-                    <button onClick={() => handleFeedback(event.id, event.eventName)} className="text-blue-500 font-bold hover:text-blue-700">Revise</button>
-                  </td>
-                </tr>
-              ))}
+              {filteredEvents.map((event, index) => {
+                const rowNumber = (currentPage - 1) * (paginationInfo?.pageSize || 10) + index + 1;
+
+                // Date Formatting Helper
+                const dateObj = new Date(event.date);
+                const day = dateObj.getDate();
+                const month = dateObj.toLocaleString('en-US', { month: 'long' });
+                const year = dateObj.getFullYear();
+                const suffix = (day) => {
+                  if (day > 3 && day < 21) return 'th';
+                  switch (day % 10) {
+                    case 1: return "st";
+                    case 2: return "nd";
+                    case 3: return "rd";
+                    default: return "th";
+                  }
+                };
+                const formattedDate = `${day}${suffix(day)} ${month} ${year} - ${event.startTime ? event.startTime.substring(0, 5).replace(':', '.') : ''}`;
+
+                // Status Styling Helper
+                let statusText = event.status;
+                let statusColor = "text-gray-500";
+                let dotColor = "text-gray-300";
+
+                switch (event.status?.toLowerCase()) {
+                  case 'approved':
+                    statusText = 'Accepted';
+                    statusColor = "text-green-500";
+                    dotColor = "text-green-500";
+                    break;
+                  case 'pending':
+                    statusText = 'Pending';
+                    statusColor = "text-orange-500";
+                    dotColor = "text-orange-500";
+                    break;
+                  case 'rejected':
+                    statusText = 'Rejected';
+                    statusColor = "text-red-500";
+                    dotColor = "text-red-500";
+                    break;
+                  case 'revised':
+                    statusText = 'Revised';
+                    statusColor = "text-blue-600";
+                    dotColor = "text-blue-600";
+                    break;
+                  default:
+                    break;
+                }
+
+                return (
+                  <tr
+                    key={event.id}
+                    className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition-colors`}
+                  >
+                    <td className="p-3">
+                      <span className="font-bold text-gray-500 mr-2">{rowNumber}.</span>
+                      <span className="font-bold text-gray-800">{event.eventName}</span>
+                    </td>
+                    <td className="p-3 font-medium text-gray-700">{formattedDate}</td>
+                    <td className="p-3 font-medium text-gray-700">{event.location}</td>
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className={`font-bold ${statusColor}`}>{statusText}</span>
+                        <FaCircle className={`w-3 h-3 ${dotColor}`} />
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-center gap-3">
+                        <button
+                          onClick={() => handleEventClick(event)}
+                          className="bg-[#2D75B6] hover:bg-blue-700 text-white p-1 rounded-md transition-colors"
+                          title="Review / Edit"
+                        >
+                          <FaPenSquare className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleEventClick(event)}
+                          className="text-gray-600 hover:text-gray-800 transition-colors"
+                          title="View Details"
+                        >
+                          <FaEye className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {paginationInfo && paginationInfo.totalPages > 1 && (
@@ -323,7 +448,14 @@ const SuperAdminDashboard = () => {
           )}
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-lg flex justify-between items-center">
+            <div>
+              <h3 className="text-gray-500 font-medium text-sm">Target Time</h3>
+              <p className="text-xs text-gray-400">Asia/Jakarta</p>
+            </div>
+            <RealtimeClock className="text-gray-800" />
+          </div>
           <FeedbackPanel
             feedbackList={adminNotifications}
             onFeedbackClick={handleAdminNotifClick}

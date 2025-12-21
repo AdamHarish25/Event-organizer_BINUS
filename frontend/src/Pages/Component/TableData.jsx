@@ -1,6 +1,6 @@
 // src/components/MyEventsTable.jsx
 import React from 'react';
-import { FaEdit, FaTrash, FaBell } from 'react-icons/fa';
+import { FaPenSquare, FaWindowClose, FaCircle } from 'react-icons/fa';
 
 const statusStyles = {
   Accepted: "bg-green-100 text-green-800",
@@ -10,51 +10,110 @@ const statusStyles = {
   Rejected: "bg-red-100 text-red-800",
 };
 
-const MyEventsTable = ({ events, onEdit, onDelete, onNotify }) => {
+const MyEventsTable = ({ events, onEdit, onDelete, currentPage = 1, pageSize = 10 }) => {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full bg-white">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Name</th>
-            <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Description</th>
-            <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Date</th>
-            <th className="py-3 px-6 text-left text-sm font-semibold text-gray-600">Location</th>
-            <th className="py-3 px-6 text-center text-sm font-semibold text-gray-600">Status</th>
-            <th className="py-3 px-6 text-center text-sm font-semibold text-gray-600">Actions</th>
+      <table className="w-full text-sm text-left border-collapse">
+        <thead>
+          <tr className="text-gray-600 border-b border-gray-200">
+            <th className="p-3 font-semibold">Name</th>
+            <th className="p-3 font-semibold">Date</th>
+            <th className="p-3 font-semibold">Location</th>
+            <th className="p-3 font-semibold text-center">Status</th>
+            <th className="p-3 font-semibold text-center">Action</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
-          {events.map((event) => (
-            <tr key={event.id} className="hover:bg-gray-50">
-              <td className="py-4 px-6 text-gray-800 font-medium">{event.eventName}</td>
-              <td className="py-4 px-6 text-gray-600 max-w-xs">
-                <div className="line-clamp-2 text-sm">
-                  {event.description || 'No description'}
-                </div>
-              </td>
-              <td className="py-4 px-6 text-gray-600">{event.date}</td>
-              <td className="py-4 px-6 text-gray-600">{event.location}</td>
-              <td className="py-4 px-6 text-center">
-                <span className={`px-3 py-1 text-xs font-bold rounded-full ${statusStyles[event.status] || 'bg-gray-100 text-gray-800'}`}>
-                  {event.status}
-                </span>
-              </td>
-              <td className="py-4 px-6">
-                <div className="flex justify-center items-center gap-4">
-                  <button onClick={() => onNotify(event.feedbackId)} className="text-gray-500 hover:text-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed" title="Notifications" disabled={!event.feedbackId}>
-                    <FaBell size={16} />
-                  </button>
-                  <button onClick={() => onEdit(event)} className="text-gray-500 hover:text-green-600 transition" title="Edit Event">
-                    <FaEdit size={16} />
-                  </button>
-                  <button onClick={() => onDelete(event.id)} className="text-gray-500 hover:text-red-600 transition" title="Delete Event">
-                    <FaTrash size={16} />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+        <tbody>
+          {events.map((event, index) => {
+            const rowNumber = (currentPage - 1) * pageSize + index + 1;
+
+            // Date Formatting
+            const dateObj = new Date(event.date);
+            const day = dateObj.getDate();
+            const month = dateObj.toLocaleString('en-US', { month: 'long' });
+            const year = dateObj.getFullYear();
+            const suffix = (d) => {
+              if (d > 3 && d < 21) return 'th';
+              switch (d % 10) {
+                case 1: return "st";
+                case 2: return "nd";
+                case 3: return "rd";
+                default: return "th";
+              }
+            };
+            const formattedDate = `${day}${suffix(day)} ${month} ${year} - ${event.startTime ? event.startTime.substring(0, 5).replace(':', '.') : ''}`;
+
+            // Status Styling
+            let statusText = event.status;
+            let statusColor = "text-gray-500";
+            let dotColor = "text-gray-300";
+
+            switch (event.status?.toLowerCase()) {
+              case 'approved':
+                statusText = 'Accepted';
+                statusColor = "text-green-500";
+                dotColor = "text-green-500";
+                break;
+              case 'pending':
+                statusText = 'Pending';
+                statusColor = "text-orange-500";
+                dotColor = "text-orange-500";
+                break;
+              case 'rejected':
+                statusText = 'Rejected';
+                statusColor = "text-red-500";
+                dotColor = "text-red-500";
+                break;
+              case 'revised':
+                statusText = 'Revised';
+                statusColor = "text-blue-600";
+                dotColor = "text-blue-600";
+                break;
+              default: break;
+            }
+
+            return (
+              <tr key={event.id} className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-100 transition-colors`}>
+                <td className="p-3">
+                  <span className="font-bold text-gray-500 mr-2">{rowNumber}.</span>
+                  {/* Underlined name for admins as per design hints if needed, but bold is safer */}
+                  <span className="font-bold text-gray-800 underline decoration-blue-500 cursor-pointer" onClick={() => onEdit(event)}>{event.eventName}</span>
+                </td>
+                <td className="p-3 font-medium text-gray-700">{formattedDate}</td>
+                <td className="p-3 font-medium text-gray-700">{event.location}</td>
+                <td className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className={`font-bold ${statusColor}`}>{statusText}</span>
+                    <FaCircle className={`w-3 h-3 ${dotColor}`} />
+                  </div>
+                </td>
+                <td className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => onEdit(event)}
+                      className="text-[#2D75B6] hover:text-blue-800 transition-colors"
+                      title="Edit Event"
+                    >
+                      <FaPenSquare className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(event.id)}
+                      className="text-[#E02424] hover:text-red-800 transition-colors"
+                      title="Delete Event"
+                    >
+                      {/* Using a filled square times icon or just FaWindowClose/FaTimes? Design usually has square bg. I'll use FaWindowClose for a square look or FaTimes inside a box. 
+                       Wait, the user said "Action" column. 
+                       I will use FaWindowClose which looks like a square with X or styled button. 
+                       The super admin used buttons with icons. 
+                       Let's make them look like icons directly as per previous instruction context "icons".
+                       I'll use FaWindowClose which is square with X. */}
+                      <FaWindowClose className="w-6 h-6" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

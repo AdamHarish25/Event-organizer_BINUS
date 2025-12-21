@@ -33,7 +33,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
         description: eventToEdit.description || '',
         image: null
       });
-      setPreviewImageSrc(eventToEdit.imageUrl || null);
+      setPreviewImageSrc(eventToEdit.imageUrl ? `${eventToEdit.imageUrl}?t=${new Date().getTime()}` : null);
     } else {
       // Reset semua state saat modal ditutup atau dalam mode 'New Event'
       setFormData({ eventName: '', location: '', date: '', startTime: '', endTime: '', speaker: '', description: '', image: null });
@@ -44,7 +44,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
       setPreviewImageSrc(null);
       setIsPreviewVisible(false); // Pastikan pratinjau tersembunyi saat dibuka kembali
     }
-    
+
     // Cleanup function to revoke object URLs when component unmounts
     return () => {
       if (previewImageSrc && previewImageSrc.startsWith('blob:')) {
@@ -58,7 +58,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
 
     if (name === 'image' && files && files[0]) {
       const file = files[0];
-      
+
       // Validate file format
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
@@ -66,7 +66,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
         e.target.value = ''; // Clear the input
         return;
       }
-      
+
       // Validate file size (2MB = 2 * 1024 * 1024 bytes)
       const maxSize = 2 * 1024 * 1024;
       if (file.size > maxSize) {
@@ -74,24 +74,24 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
         e.target.value = ''; // Clear the input
         return;
       }
-      
+
       setFormData(prev => ({ ...prev, image: file }));
-      
+
       // Clean up previous object URL before creating new one
       if (previewImageSrc && previewImageSrc.startsWith('blob:')) {
         URL.revokeObjectURL(previewImageSrc);
       }
-      
+
       setPreviewImageSrc(URL.createObjectURL(file));
-      
+
       // Clear any previous image errors since validation passed
       setErrors(prev => ({ ...prev, image: [] }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      
+
       // Real-time validation
       let fieldErrors = [];
-      switch(name) {
+      switch (name) {
         case 'eventName':
           fieldErrors = validateEventName(value);
           break;
@@ -125,7 +125,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validate all fields
     const allErrors = {
       eventName: validateEventName(formData.eventName),
@@ -136,7 +136,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
       speaker: validateSpeaker(formData.speaker),
       image: validateImage(formData.image, !isEditMode)
     };
-    
+
     // Add time range validation
     if (allErrors.startTime.length === 0 && allErrors.endTime.length === 0) {
       const timeRangeErrors = validateTimeRange(formData.startTime, formData.endTime);
@@ -144,13 +144,13 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
         allErrors.endTime = [...allErrors.endTime, ...timeRangeErrors];
       }
     }
-    
+
     setErrors(allErrors);
-    
+
     // Check if there are any errors
     const hasErrors = Object.values(allErrors).some(errorArray => errorArray.length > 0);
     if (hasErrors) return;
-    
+
     const fd = new FormData();
     fd.append('eventName', formData.eventName.trim());
     fd.append('date', formData.date);
@@ -171,7 +171,7 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
   if (!isOpen) return null;
 
 
-  
+
 
   return (
     // Latar belakang modal
@@ -196,11 +196,11 @@ const EventFormModal = ({ isOpen, onClose, onSave, eventToEdit, helperMessage })
 
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-600">Description</label>
-              <textarea 
-                name="description" 
-                id="description" 
-                value={formData.description} 
-                onChange={handleChange} 
+              <textarea
+                name="description"
+                id="description"
+                value={formData.description}
+                onChange={handleChange}
                 rows={3}
                 placeholder="Describe the event details..."
                 className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:ring-blue-500 resize-none"

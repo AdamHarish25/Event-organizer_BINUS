@@ -39,11 +39,11 @@ const DashboardUser = () => {
       try {
         const response = await apiClient.get('/event/');
         const { current, thisWeek, next } = response.data.data;
-        
+
         setCurrentEvents(current || []);
         setThisWeekEvents(thisWeek || []);
         setNextEvents(next || []);
-        
+
       } catch (err) {
         console.error("Error fetching categorized events:", err);
         setCurrentEvents([]);
@@ -64,7 +64,7 @@ const DashboardUser = () => {
       setFilteredThisWeek(thisWeekEvents); // Jika tidak ada pencarian, tampilkan semua event minggu ini
       return;
     }
-    
+
     const searchTermLower = searchItem.toLowerCase();
     const results = thisWeekEvents.filter((event) => {
       // Logika pencarian Anda sudah benar
@@ -143,39 +143,57 @@ const DashboardUser = () => {
           </ul>
 
           <h1 className="text-2xl font-semibold mt-10 mb-5">Next Events</h1>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 w-full min-h-[400px] h-full">
-            {nextEvents.slice(0, 4).map((event) => (
-              <div
-                key={event.id + "-next"}
-                className="space-y-3 py-5 pl-5 pr-5 border-2 border-gray-500 rounded-lg h-full flex flex-col"
-              >
-                <h1 className="text-xl font-semibold">{event.eventName}</h1>
-                {event.description && (
-                  <p className="text-sm text-gray-600 line-clamp-3 flex-1">{event.description}</p>
-                )}
-                <div className="space-y-1">
-                  <p className="space-x-2 flex items-center text-sm">
-                    <FaClock className="text-[#EC6A37]"/>
-                    <span>{`${event.startTime} - ${event.endTime}`}</span>
-                  </p>
-                  <p className="space-x-2 flex items-center text-sm">
-                    <FaCalendar className="text-[#3F88BC]"/>
-                    <span>{new Date(event.date).toLocaleDateString()}</span>
-                  </p>
-                  <p className="space-x-2 flex items-center text-sm">
-                    <FaLocationPin className="text-[#D9242A]"/>
-                    <span>{event.location}</span>
-                  </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 w-full">
+            {nextEvents.slice(0, 4).map((event) => {
+              // Date Formatting Helper
+              const dateObj = new Date(event.date);
+              const day = dateObj.getDate();
+              const month = dateObj.toLocaleString('en-US', { month: 'long' });
+              const year = dateObj.getFullYear();
+              const suffix = (d) => {
+                if (d > 3 && d < 21) return 'th';
+                switch (d % 10) {
+                  case 1: return "st";
+                  case 2: return "nd";
+                  case 3: return "rd";
+                  default: return "th";
+                }
+              };
+              const formattedDate = `${day}${suffix(day)} ${month} ${year}`;
+
+              return (
+                <div
+                  key={event.id + "-next"}
+                  className="px-5 py-4 border border-gray-300 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3"
+                >
+                  <h1 className="text-base font-bold text-gray-900 leading-snug line-clamp-2">{event.eventName}</h1>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <FaClock className="text-[#F97316] w-4 h-4 shrink-0" /> {/* Orange */}
+                      <span>{event.startTime} - {event.endTime}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <FaRegCalendarAlt className="text-[#3B82F6] w-4 h-4 shrink-0" /> {/* Blue */}
+                      <span>{formattedDate}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <FaLocationPin className="text-[#EF4444] w-4 h-4 shrink-0" /> {/* Red */}
+                      <span className="line-clamp-1">{event.location}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
       <div className="w-full h-fit px-10 py-5 bg-[#F3F3F3] text-right">
         <p className="text-gray-600">Universitas Bina Nusantara Bekasi 2023</p>
       </div>
-      
+
     </div>
   );
 };
