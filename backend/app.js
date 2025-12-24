@@ -1,4 +1,5 @@
 import express from "express";
+import dns from "node:dns";
 import dotenv from "dotenv";
 import cors from "cors";
 import session from "express-session";
@@ -13,6 +14,8 @@ import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 
 dotenv.config();
+
+process.env.FORCE_IPV4 === "true" && dns.setDefaultResultOrder?.("ipv4first");
 
 const app = express();
 
