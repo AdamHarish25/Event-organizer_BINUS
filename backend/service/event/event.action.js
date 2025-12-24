@@ -411,6 +411,10 @@ export const updateEventService = async (
                 location: data.location,
                 speaker: data.speaker,
                 description: data.description,
+                imageUrl: uploadResult ? uploadResult.secure_url : undefined,
+                imagePublicId: uploadResult
+                    ? uploadResult.public_id
+                    : undefined,
             };
 
             Object.keys(allowedUpdates).forEach(
