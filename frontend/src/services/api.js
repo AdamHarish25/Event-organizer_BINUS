@@ -1,7 +1,7 @@
 // src/services/api.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000'; 
+const API_URL = 'http://localhost:5000';
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -23,6 +23,9 @@ apiClient.interceptors.request.use(
         console.error('Error parsing user data from localStorage:', error);
         localStorage.removeItem('user'); // Hapus data yang corrupt
       }
+    }
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
     return config;
   },

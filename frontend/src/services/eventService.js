@@ -10,7 +10,7 @@ import apiClient from './api';
 export const getEvents = async (page = 1, limit = 10) => {
   try {
     const response = await apiClient.get('/event', {
-      params: { page, limit }
+      params: { page, limit, _t: new Date().getTime() }
     });
     return response.data;
   } catch (error) {
@@ -22,9 +22,7 @@ export const getEvents = async (page = 1, limit = 10) => {
 // Membuat Event baru (hanya admin)
 export const createEvent = async (formData) => {
   try {
-    const response = await apiClient.post('/event', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await apiClient.post('/event', formData);
     return response.data;
   } catch (error) {
     console.error('Create event error:', error);
@@ -35,9 +33,7 @@ export const createEvent = async (formData) => {
 // Edit Event (hanya admin)
 export const editEvent = async (eventId, formData) => {
   try {
-    const response = await apiClient.patch(`/event/${eventId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await apiClient.patch(`/event/${eventId}`, formData);
     return response.data;
   } catch (error) {
     console.error('Edit event error:', error);
