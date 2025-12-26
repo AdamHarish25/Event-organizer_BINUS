@@ -8,7 +8,7 @@ const uploadPoster = multer({
     storage: multer.memoryStorage(),
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024,
+        fileSize: 2 * 1024 * 1024,
         files: 1,
     },
 });
