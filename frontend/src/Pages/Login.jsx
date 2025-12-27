@@ -1,14 +1,14 @@
 // src/Pages/Login.jsx
 import React, { useState } from 'react';
 import { FaUser, FaLock } from "react-icons/fa"; // Menggunakan ikon User
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import authService from '../services/authService'; // Mengimpor authService yang sudah akurat
 
 import logo from '../assets/logo.png'; // Pastikan path ini benar
 
 const LoginUserPage = () => {
   // Menggunakan 'email' sesuai standar API login
-  const [email, setEmail] = useState(''); 
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,13 +20,13 @@ const LoginUserPage = () => {
     setLoading(true);
 
     try {
-  // Panggil authService.login dengan email dan password
-  await authService.login(email, password);
-      
+      // Panggil authService.login dengan email dan password
+      await authService.login(email, password);
+
       // Jika tidak ada error, berarti login berhasil
       // Redirect ke dashboard
-      navigate('/dashboard'); 
-      
+      navigate('/dashboard');
+
     } catch (err) {
       // Menangkap error dari backend dan menampilkannya
       const errorMessage = err.response?.data?.message || 'Login failed. Please check your credentials.';
@@ -70,25 +70,25 @@ const LoginUserPage = () => {
           <div className={className.inputGroup}>
             <div className={className.icon}><FaUser /></div>
             <div className={className.separator}></div>
-            <input 
-              type="email" 
-              placeholder="Enter your Email" 
-              className={className.input} 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
+            <input
+              type="email"
+              placeholder="Enter your Email"
+              className={className.input}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </div>
           <div className={className.inputGroup}>
             <div className={className.icon}><FaLock /></div>
             <div className={className.separator}></div>
-            <input 
-              type="password" 
-              placeholder="Enter your Password" 
-              className={className.input} 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
+            <input
+              type="password"
+              placeholder="Enter your Password"
+              className={className.input}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
           </div>
 
@@ -100,6 +100,9 @@ const LoginUserPage = () => {
             <button type="submit" className={className.button} disabled={loading}>
               {loading ? 'Logging in...' : 'Login'}
             </button>
+          </div>
+          <div className="mt-4 text-center text-sm">
+            <p>Don't have an account? <Link to="/register" className="font-bold hover:underline">Register here</Link></p>
           </div>
         </form>
       </div>

@@ -17,13 +17,13 @@ import VerifyOtp from './Pages/Auth/VerifyOtp';
 import ResetPassword from './Pages/Auth/ResetPassword';
 
 const UnauthorizedPage = () => (
-    <div className='flex flex-col items-center justify-center h-screen bg-gray-100'>
-        <h1 className='text-4xl font-bold text-red-500'>403 - Akses Ditolak</h1>
-        <p className='text-gray-600 mt-2'>Anda tidak memiliki izin untuk melihat halaman ini.</p>
-        <Link to="/" className='mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'>
-          Kembali Login
-        </Link>
-    </div>
+  <div className='flex flex-col items-center justify-center h-screen bg-gray-100'>
+    <h1 className='text-4xl font-bold text-red-500'>403 - Akses Ditolak</h1>
+    <p className='text-gray-600 mt-2'>Anda tidak memiliki izin untuk melihat halaman ini.</p>
+    <Link to="/" className='mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'>
+      Kembali Login
+    </Link>
+  </div>
 );
 
 function App() {
@@ -37,7 +37,7 @@ function App() {
 
         <Route path="/admin" element={<Navigate to="/login/admin" />} />
         <Route path="/superadmin" element={<Navigate to="/login/superadmin" />} />
-        
+
         <Route path="/login" element={<LoginUserPage />} />
         <Route path="/" element={<LoginUserPage />} />
         <Route path="/login/admin" element={<LoginAdminPage />} />
@@ -47,14 +47,31 @@ function App() {
         <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['student']}><DashboardUser /></ProtectedRoute>} />
-        <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin', 'super_admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/superadmin/dashboard" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} /> */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['student']} loginUrl="/login">
+              <DashboardUser />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'super_admin']} loginUrl="/login/admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/superadmin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['super_admin']} loginUrl="/login/superadmin">
+              <SuperAdminDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/dashboard" element={<DashboardUser />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
-        
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="*" element={<div className='flex items-center justify-center h-screen'><h1 className='text-4xl font-bold'>404 - Halaman Tidak Ditemukan</h1></div>} />
       </Routes>

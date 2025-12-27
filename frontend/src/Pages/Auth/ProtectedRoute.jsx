@@ -4,7 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import authService from '../../services/authService';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles, loginUrl }) => {
   const { loading } = useAuth();
   const location = useLocation();
 
@@ -18,9 +18,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   const isAuthenticated = authService.isAuthenticated();
   const userRole = authService.getUserRole();
-  
+
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    // Jika tidak login, redirect ke loginUrl yang ditentukan (misal /login/admin)
+    // atau default ke "/" (login user biasa)
+    return <Navigate to={loginUrl || "/"} state={{ from: location }} replace />;
   }
 
   if (allowedRoles && !allowedRoles.includes(userRole)) {
