@@ -87,7 +87,7 @@ const DashboardUser = () => {
   }));
 
   return (
-    <div className="w-full relative overflow-x-hidden">
+    <div className="w-full relative overflow-x-hidden min-h-screen flex flex-col">
       <MainHeader pageTitle="Event Viewer" />
 
       <div className="p-5 space-y-2 bg-[#3C82CE]">
@@ -101,8 +101,8 @@ const DashboardUser = () => {
         </div>
       </div>
 
-      <div className="px-5 md:px-10 xl:px-20 pt-5 bgDash grid place-items-center">
-        <div className="bg-white w-full h-full px-10 py-5 rounded-t-xl pb-10 overflow-hidden">
+      <div className="px-5 md:px-10 xl:px-20 pt-5 bgDash flex-1 flex flex-col">
+        <div className="bg-white w-full flex-1 px-10 py-5 rounded-t-xl pb-10 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-2xl font-semibold">This Week</h1>
             <div className="flex items-center gap-4">
