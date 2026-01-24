@@ -7,14 +7,18 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
+const isTest = process.env.NODE_ENV === "test";
+const databaseName = isTest ? process.env.DB_NAME_TEST : process.env.DB_NAME;
+
 export const sequelize = new Sequelize(
-    process.env.DB_NAME,
+    databaseName,
     process.env.DB_USERNAME,
     process.env.DB_PASSWORD,
     {
         host: "localhost",
         dialect: "mysql",
-    }
+        logging: isTest ? false : console.log,
+    },
 );
 
 export async function testDBConnection() {
