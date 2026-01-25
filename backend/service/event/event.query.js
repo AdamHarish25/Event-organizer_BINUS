@@ -1,9 +1,23 @@
-import { startOfToday, endOfToday, endOfWeek } from "date-fns";
+import { startOfDay, endOfDay, endOfWeek } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { Op } from "sequelize";
 import AppError from "../../utils/AppError.js";
 import { Event } from "../../model/index.js";
 
 export const getEventsByCategory = async ({ logger }) => {
+    const timeZone = "Asia/Jakarta";
+    const now = new Date();
+
+    const nowInWIB = toZonedTime(now, timeZone);
+
+    const WIBStartOfDay = startOfDay(nowInWIB);
+    const WIBEndOfDay = endOfDay(nowInWIB);
+    const WIBEndOfWeek = endOfWeek(nowInWIB, { weekStartsOn: 1 });
+
+    const queryStartToday = fromZonedTime(WIBStartOfDay, timeZone);
+    const queryEndToday = fromZonedTime(WIBEndOfDay, timeZone);
+    const queryEndOfWeek = fromZonedTime(WIBEndOfWeek, timeZone);
+
     try {
         logger.info("Fetching categorized events from database");
 
@@ -26,31 +40,34 @@ export const getEventsByCategory = async ({ logger }) => {
             ],
         };
 
-        const today = new Date();
-
         const [currentEvents, thisWeekEvents, nextEvents] = await Promise.all([
             Event.findAll({
                 ...commonOptions,
                 where: {
                     ...commonOptions.where,
-                    date: { [Op.eq]: startOfToday() },
+                    date: {
+                        [Op.gte]: queryStartToday,
+                        [Op.lte]: queryEndToday,
+                    },
                 },
             }),
+
             Event.findAll({
                 ...commonOptions,
                 where: {
                     ...commonOptions.where,
                     date: {
-                        [Op.gt]: endOfToday(),
-                        [Op.lte]: endOfWeek(today, { weekStartsOn: 1 }),
+                        [Op.gt]: queryEndToday,
+                        [Op.lte]: queryEndOfWeek,
                     },
                 },
             }),
+
             Event.findAll({
                 ...commonOptions,
                 where: {
                     ...commonOptions.where,
-                    date: { [Op.gt]: endOfWeek(today, { weekStartsOn: 1 }) },
+                    date: { [Op.gt]: queryEndOfWeek },
                 },
             }),
         ]);
@@ -79,13 +96,13 @@ export const getEventsByCategory = async ({ logger }) => {
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "Gagal mengambil data event.",
             500,
-            "DATABASE_ERROR"
+            "DATABASE_ERROR",
         );
     }
 };
@@ -109,7 +126,7 @@ export const getPaginatedEvents = async (options) => {
                 "Applying filter for admin role: fetching own events only",
                 {
                     context: { creatorId: userId },
-                }
+                },
             );
         }
 
@@ -149,13 +166,13 @@ export const getPaginatedEvents = async (options) => {
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "Gagal mengambil daftar event.",
             500,
-            "DATABASE_ERROR"
+            "DATABASE_ERROR",
         );
     }
 };
