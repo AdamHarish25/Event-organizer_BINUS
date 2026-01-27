@@ -367,6 +367,7 @@ export const updateEventService = async (
     logger,
 ) => {
     let uploadResult;
+    let oldImagePublicId = null;
     try {
         logger.info("Event update process started in service", {
             context: { eventId },
@@ -414,6 +415,10 @@ export const updateEventService = async (
                 );
             }
             logger.info("Event found in database. Proceeding with update.");
+
+            if (uploadResult && event.imagePublicId) {
+                oldImagePublicId = event.imagePublicId;
+            }
 
             const allowedUpdates = {
                 eventName: data.eventName,
@@ -505,6 +510,17 @@ export const updateEventService = async (
         });
 
         logger.info("Database transaction committed successfully");
+
+        if (oldImagePublicId) {
+            logger.info("Deleting old image replaced during update", {
+                context: { oldImagePublicId },
+            });
+            deleteSingleFile(oldImagePublicId, logger).catch((err) => {
+                logger.error("Background task: Failed to delete old image", {
+                    error: err.message,
+                });
+            });
+        }
 
         return updatedEvent;
     } catch (error) {
