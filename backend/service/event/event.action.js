@@ -113,49 +113,50 @@ export const createEventService = async (userId, data, file, logger) => {
                 context: { eventId: event.id },
             });
 
-            await createAndEmitBroadcastNotification({
-                eventId: event.id,
-                senderId: userId,
-                recipients: superAdmins,
-                notificationType: NOTIFICATION_TYPES.EVENT_CREATED,
-                payload: {
-                    eventName,
-                    startTime,
-                    date,
-                    location,
-                    speaker,
-                    imageUrl: event.imageUrl,
-                },
-                socketConfig: {
-                    room: ROOMS.SUPER_ADMIN,
-                    title: "A new request has been submitted",
-                    message: `${creatorName} has submitted a request for the event: ${event.eventName}. Please review it.`,
-                },
-                transaction: t,
-                logger,
-            });
-
-            await createAndEmitNotification({
-                eventId: event.id,
-                senderId: userId,
-                recipientId: userId,
-                notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
-                payload: {
-                    eventName,
-                    startTime,
-                    date,
-                    location,
-                    speaker,
-                    imageUrl: event.imageUrl,
-                },
-                socketConfig: {
-                    title: "Your Request is currently PENDING",
-                    message:
-                        "We will inform you of the outcome as soon as possible.",
-                },
-                transaction: t,
-                logger,
-            });
+            await Promise.all([
+                createAndEmitBroadcastNotification({
+                    eventId: event.id,
+                    senderId: userId,
+                    recipients: superAdmins,
+                    notificationType: NOTIFICATION_TYPES.EVENT_CREATED,
+                    payload: {
+                        eventName,
+                        startTime,
+                        date,
+                        location,
+                        speaker,
+                        imageUrl: event.imageUrl,
+                    },
+                    socketConfig: {
+                        room: ROOMS.SUPER_ADMIN,
+                        title: "A new request has been submitted",
+                        message: `${creatorName} has submitted a request for the event: ${event.eventName}. Please review it.`,
+                    },
+                    transaction: t,
+                    logger,
+                }),
+                createAndEmitNotification({
+                    eventId: event.id,
+                    senderId: userId,
+                    recipientId: userId,
+                    notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
+                    payload: {
+                        eventName,
+                        startTime,
+                        date,
+                        location,
+                        speaker,
+                        imageUrl: event.imageUrl,
+                    },
+                    socketConfig: {
+                        title: "Your Request is currently PENDING",
+                        message:
+                            "We will inform you of the outcome as soon as possible.",
+                    },
+                    transaction: t,
+                    logger,
+                }),
+            ]);
 
             return event;
         });
@@ -452,51 +453,53 @@ export const updateEventService = async (
             });
 
             const updatedPayloadData = { ...event.dataValues };
-            await createAndEmitBroadcastNotification({
-                eventId: event.id,
-                senderId: adminId,
-                recipients: superAdmins,
-                notificationType: NOTIFICATION_TYPES.EVENT_UPDATED,
-                payload: {
-                    eventName: updatedPayloadData.eventName,
-                    startTime: updatedPayloadData.startTime,
-                    endTime: updatedPayloadData.endTime,
-                    date: updatedPayloadData.date,
-                    location: updatedPayloadData.location,
-                    speaker: updatedPayloadData.speaker,
-                    imageUrl: updatedPayloadData.imageUrl,
-                },
-                socketConfig: {
-                    room: ROOMS.SUPER_ADMIN,
-                    eventName: "eventUpdated",
-                    message: `Event "${updatedPayloadData.eventName}" telah diperbarui dan menunggu persetujuan.`,
-                },
-                transaction: t,
-                logger,
-            });
 
-            await createAndEmitNotification({
-                eventId: event.id,
-                senderId: adminId,
-                recipientId: adminId,
-                notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
-                payload: {
-                    eventName: updatedPayloadData.eventName,
-                    startTime: updatedPayloadData.startTime,
-                    endTime: updatedPayloadData.endTime,
-                    date: updatedPayloadData.date,
-                    location: updatedPayloadData.location,
-                    speaker: updatedPayloadData.speaker,
-                    imageUrl: updatedPayloadData.imageUrl,
-                },
-                socketConfig: {
-                    title: "Your Request is currently PENDING",
-                    message:
-                        "We will inform you of the outcome as soon as possible.",
-                },
-                transaction: t,
-                logger,
-            });
+            await Promise.all([
+                createAndEmitBroadcastNotification({
+                    eventId: event.id,
+                    senderId: adminId,
+                    recipients: superAdmins,
+                    notificationType: NOTIFICATION_TYPES.EVENT_UPDATED,
+                    payload: {
+                        eventName: updatedPayloadData.eventName,
+                        startTime: updatedPayloadData.startTime,
+                        endTime: updatedPayloadData.endTime,
+                        date: updatedPayloadData.date,
+                        location: updatedPayloadData.location,
+                        speaker: updatedPayloadData.speaker,
+                        imageUrl: updatedPayloadData.imageUrl,
+                    },
+                    socketConfig: {
+                        room: ROOMS.SUPER_ADMIN,
+                        eventName: "eventUpdated",
+                        message: `Event "${updatedPayloadData.eventName}" telah diperbarui dan menunggu persetujuan.`,
+                    },
+                    transaction: t,
+                    logger,
+                }),
+                createAndEmitNotification({
+                    eventId: event.id,
+                    senderId: adminId,
+                    recipientId: adminId,
+                    notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
+                    payload: {
+                        eventName: updatedPayloadData.eventName,
+                        startTime: updatedPayloadData.startTime,
+                        endTime: updatedPayloadData.endTime,
+                        date: updatedPayloadData.date,
+                        location: updatedPayloadData.location,
+                        speaker: updatedPayloadData.speaker,
+                        imageUrl: updatedPayloadData.imageUrl,
+                    },
+                    socketConfig: {
+                        title: "Your Request is currently PENDING",
+                        message:
+                            "We will inform you of the outcome as soon as possible.",
+                    },
+                    transaction: t,
+                    logger,
+                }),
+            ]);
 
             return event;
         });
