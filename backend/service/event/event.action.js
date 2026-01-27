@@ -16,6 +16,17 @@ import {
 import { sequelize } from "../../config/dbconfig.js";
 import { Event, User } from "../../model/index.js";
 
+export const NOTIFICATION_TYPES = {
+    EVENT_CREATED: "event_created",
+    EVENT_UPDATED: "event_updated",
+    EVENT_PENDING: "event_pending",
+    EVENT_DELETED: "event_deleted",
+};
+
+export const ROOMS = {
+    SUPER_ADMIN: "super_admin-room",
+};
+
 export const createEventService = async (userId, data, file, logger) => {
     const {
         eventName,
@@ -42,7 +53,7 @@ export const createEventService = async (userId, data, file, logger) => {
                 folder: fullFolderPath,
                 public_id: fileName,
             },
-            logger
+            logger,
         );
         logger.info("Image uploaded successfully", {
             context: {
@@ -68,12 +79,12 @@ export const createEventService = async (userId, data, file, logger) => {
 
             if (!creator) {
                 logger.warn(
-                    "Event creation failed: Creator user not found in database"
+                    "Event creation failed: Creator user not found in database",
                 );
                 throw new AppError(
                     "User tidak ditemukan",
                     404,
-                    "USER_NOT_FOUND"
+                    "USER_NOT_FOUND",
                 );
             }
             creatorName = creator.firstName;
@@ -96,62 +107,63 @@ export const createEventService = async (userId, data, file, logger) => {
                     imageUrl: uploadResult.secure_url,
                     imagePublicId: uploadResult.public_id,
                 },
-                { transaction: t }
+                { transaction: t },
             );
             logger.info("Event record created successfully in database", {
                 context: { eventId: event.id },
             });
 
-            await createAndEmitBroadcastNotification({
-                eventId: event.id,
-                senderId: userId,
-                recipients: superAdmins,
-                notificationType: "event_created",
-                payload: {
-                    eventName,
-                    startTime,
-                    date,
-                    location,
-                    speaker,
-                    imageUrl: event.imageUrl,
-                },
-                socketConfig: {
-                    room: "super_admin-room",
-                    title: "A new request has been submitted",
-                    message: `${creatorName} has submitted a request for the event: ${event.eventName}. Please review it.`,
-                },
-                transaction: t,
-                logger,
-            });
-
-            await createAndEmitNotification({
-                eventId: event.id,
-                senderId: userId,
-                recipientId: userId,
-                notificationType: "event_pending",
-                payload: {
-                    eventName,
-                    startTime,
-                    date,
-                    location,
-                    speaker,
-                    imageUrl: event.imageUrl,
-                },
-                socketConfig: {
-                    title: "Your Request is currently PENDING",
-                    message:
-                        "We will inform you of the outcome as soon as possible.",
-                },
-                transaction: t,
-                logger,
-            });
+            await Promise.all([
+                createAndEmitBroadcastNotification({
+                    eventId: event.id,
+                    senderId: userId,
+                    recipients: superAdmins,
+                    notificationType: NOTIFICATION_TYPES.EVENT_CREATED,
+                    payload: {
+                        eventName,
+                        startTime,
+                        date,
+                        location,
+                        speaker,
+                        imageUrl: event.imageUrl,
+                    },
+                    socketConfig: {
+                        room: ROOMS.SUPER_ADMIN,
+                        title: "A new request has been submitted",
+                        message: `${creatorName} has submitted a request for the event: ${event.eventName}. Please review it.`,
+                    },
+                    transaction: t,
+                    logger,
+                }),
+                createAndEmitNotification({
+                    eventId: event.id,
+                    senderId: userId,
+                    recipientId: userId,
+                    notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
+                    payload: {
+                        eventName,
+                        startTime,
+                        date,
+                        location,
+                        speaker,
+                        imageUrl: event.imageUrl,
+                    },
+                    socketConfig: {
+                        title: "Your Request is currently PENDING",
+                        message:
+                            "We will inform you of the outcome as soon as possible.",
+                    },
+                    transaction: t,
+                    logger,
+                }),
+            ]);
 
             return event;
         });
         logger.info("Database transaction committed successfully");
 
         logger.info("Socket notifications emitted to rooms", {
-            context: { rooms: ["super_admin-room", userId] },
+            context: { rooms: [ROOMS.SUPER_ADMIN, userId] },
         });
 
         return newEvent;
@@ -164,7 +176,7 @@ export const createEventService = async (userId, data, file, logger) => {
                         publicId: uploadResult.public_id,
                         reason: error.message,
                     },
-                }
+                },
             );
 
             deleteSingleFile(uploadResult.public_id, logger).catch(
@@ -178,9 +190,9 @@ export const createEventService = async (userId, data, file, logger) => {
                                 message: deleteErr.message,
                                 stack: deleteErr.stack,
                             },
-                        }
+                        },
                     );
-                }
+                },
             );
         }
 
@@ -193,7 +205,7 @@ export const createEventService = async (userId, data, file, logger) => {
                         stack: error.stack,
                         name: error.name,
                     },
-                }
+                },
             );
         }
 
@@ -224,18 +236,18 @@ export const deleteEventService = async (adminId, eventId, logger) => {
 
             if (!event) {
                 logger.warn(
-                    "Deletion failed: Event not found or user lacks permission"
+                    "Deletion failed: Event not found or user lacks permission",
                 );
 
                 throw new AppError(
                     "Event tidak ditemukan atau Anda tidak berhak menghapusnya.",
                     404,
-                    "NOT_FOUND"
+                    "NOT_FOUND",
                 );
             }
 
             logger.info(
-                "Event found in database. Proceeding with deletion logic."
+                "Event found in database. Proceeding with deletion logic.",
             );
 
             const superAdmins = await User.findAll({
@@ -254,7 +266,7 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                 eventId: eventDataForCleanupAndNotify.id,
                 senderId: adminId,
                 recipients: superAdmins,
-                notificationType: "event_deleted",
+                notificationType: NOTIFICATION_TYPES.EVENT_DELETED,
                 payload: {
                     eventName: eventDataForCleanupAndNotify.eventName,
                     startTime: eventDataForCleanupAndNotify.startTime,
@@ -265,7 +277,7 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                     imageUrl: eventDataForCleanupAndNotify.imageUrl,
                 },
                 socketConfig: {
-                    room: "super_admin-room",
+                    room: ROOMS.SUPER_ADMIN,
                     title: `Event "${eventDataForCleanupAndNotify.eventName}" has been deleted.`,
                     message: `${adminName} removed this event from the system. No further action is required`,
                 },
@@ -282,20 +294,20 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                     context: {
                         publicId: eventDataForCleanupAndNotify.imagePublicId,
                     },
-                }
+                },
             );
 
             try {
                 const folderPath = getFolderPathFromPublicId(
                     eventDataForCleanupAndNotify.imagePublicId,
-                    logger
+                    logger,
                 );
 
                 if (folderPath) {
                     await deleteEventFolder(folderPath, logger);
                     logger.info(
                         "Cloud folder and associated assets deleted successfully",
-                        { context: { folderPath } }
+                        { context: { folderPath } },
                     );
                 } else {
                     logger.warn(
@@ -305,7 +317,7 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                                 publicId:
                                     eventDataForCleanupAndNotify.imagePublicId,
                             },
-                        }
+                        },
                     );
                 }
             } catch (cloudError) {
@@ -320,12 +332,12 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                             message: cloudError.message,
                             stack: cloudError.stack,
                         },
-                    }
+                    },
                 );
             }
         } else {
             logger.info(
-                "Event has no associated image. Skipping cloud cleanup."
+                "Event has no associated image. Skipping cloud cleanup.",
             );
         }
 
@@ -340,7 +352,7 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                         stack: dbError.stack,
                         name: dbError.name,
                     },
-                }
+                },
             );
         }
         throw dbError;
@@ -352,9 +364,10 @@ export const updateEventService = async (
     adminId,
     data,
     image,
-    logger
+    logger,
 ) => {
     let uploadResult;
+    let oldImagePublicId = null;
     try {
         logger.info("Event update process started in service", {
             context: { eventId },
@@ -372,14 +385,14 @@ export const updateEventService = async (
                     folder: fullFolderPath,
                     public_id: fileName,
                 },
-                logger
+                logger,
             );
             logger.info("New image uploaded successfully", {
                 context: { url: uploadResult.secure_url },
             });
         } else {
             logger.info(
-                "No new image provided, proceeding with data update only"
+                "No new image provided, proceeding with data update only",
             );
         }
 
@@ -393,15 +406,19 @@ export const updateEventService = async (
             if (!event) {
                 logger.warn(
                     "Update failed: Event not found or user lacks permission",
-                    { context: { eventId, attemptedByUserId: adminId } }
+                    { context: { eventId, attemptedByUserId: adminId } },
                 );
                 throw new AppError(
                     "Event tidak ditemukan atau Anda tidak berhak mengubahnya.",
                     404,
-                    "NOT_FOUND"
+                    "NOT_FOUND",
                 );
             }
             logger.info("Event found in database. Proceeding with update.");
+
+            if (uploadResult && event.imagePublicId) {
+                oldImagePublicId = event.imagePublicId;
+            }
 
             const allowedUpdates = {
                 eventName: data.eventName,
@@ -420,7 +437,7 @@ export const updateEventService = async (
             Object.keys(allowedUpdates).forEach(
                 (key) =>
                     allowedUpdates[key] === undefined &&
-                    delete allowedUpdates[key]
+                    delete allowedUpdates[key],
             );
 
             logger.info("Applying updates to event record", {
@@ -429,7 +446,7 @@ export const updateEventService = async (
 
             await event.update(
                 { ...allowedUpdates, status: "pending" },
-                { transaction: t }
+                { transaction: t },
             );
 
             logger.info("Event record updated successfully in database");
@@ -441,56 +458,69 @@ export const updateEventService = async (
             });
 
             const updatedPayloadData = { ...event.dataValues };
-            await createAndEmitBroadcastNotification({
-                eventId: event.id,
-                senderId: adminId,
-                recipients: superAdmins,
-                notificationType: "event_updated",
-                payload: {
-                    eventName: updatedPayloadData.eventName,
-                    startTime: updatedPayloadData.startTime,
-                    endTime: updatedPayloadData.endTime,
-                    date: updatedPayloadData.date,
-                    location: updatedPayloadData.location,
-                    speaker: updatedPayloadData.speaker,
-                    imageUrl: updatedPayloadData.imageUrl,
-                },
-                socketConfig: {
-                    room: "super_admin-room",
-                    eventName: "eventUpdated",
-                    message: `Event "${updatedPayloadData.eventName}" telah diperbarui dan menunggu persetujuan.`,
-                },
-                transaction: t,
-                logger,
-            });
 
-            await createAndEmitNotification({
-                eventId: event.id,
-                senderId: adminId,
-                recipientId: adminId,
-                notificationType: "event_pending",
-                payload: {
-                    eventName: updatedPayloadData.eventName,
-                    startTime: updatedPayloadData.startTime,
-                    endTime: updatedPayloadData.endTime,
-                    date: updatedPayloadData.date,
-                    location: updatedPayloadData.location,
-                    speaker: updatedPayloadData.speaker,
-                    imageUrl: updatedPayloadData.imageUrl,
-                },
-                socketConfig: {
-                    title: "Your Request is currently PENDING",
-                    message:
-                        "We will inform you of the outcome as soon as possible.",
-                },
-                transaction: t,
-                logger,
-            });
+            await Promise.all([
+                createAndEmitBroadcastNotification({
+                    eventId: event.id,
+                    senderId: adminId,
+                    recipients: superAdmins,
+                    notificationType: NOTIFICATION_TYPES.EVENT_UPDATED,
+                    payload: {
+                        eventName: updatedPayloadData.eventName,
+                        startTime: updatedPayloadData.startTime,
+                        endTime: updatedPayloadData.endTime,
+                        date: updatedPayloadData.date,
+                        location: updatedPayloadData.location,
+                        speaker: updatedPayloadData.speaker,
+                        imageUrl: updatedPayloadData.imageUrl,
+                    },
+                    socketConfig: {
+                        room: ROOMS.SUPER_ADMIN,
+                        eventName: "eventUpdated",
+                        message: `Event "${updatedPayloadData.eventName}" telah diperbarui dan menunggu persetujuan.`,
+                    },
+                    transaction: t,
+                    logger,
+                }),
+                createAndEmitNotification({
+                    eventId: event.id,
+                    senderId: adminId,
+                    recipientId: adminId,
+                    notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
+                    payload: {
+                        eventName: updatedPayloadData.eventName,
+                        startTime: updatedPayloadData.startTime,
+                        endTime: updatedPayloadData.endTime,
+                        date: updatedPayloadData.date,
+                        location: updatedPayloadData.location,
+                        speaker: updatedPayloadData.speaker,
+                        imageUrl: updatedPayloadData.imageUrl,
+                    },
+                    socketConfig: {
+                        title: "Your Request is currently PENDING",
+                        message:
+                            "We will inform you of the outcome as soon as possible.",
+                    },
+                    transaction: t,
+                    logger,
+                }),
+            ]);
 
             return event;
         });
 
         logger.info("Database transaction committed successfully");
+
+        if (oldImagePublicId) {
+            logger.info("Deleting old image replaced during update", {
+                context: { oldImagePublicId },
+            });
+            deleteSingleFile(oldImagePublicId, logger).catch((err) => {
+                logger.error("Background task: Failed to delete old image", {
+                    error: err.message,
+                });
+            });
+        }
 
         return updatedEvent;
     } catch (error) {
@@ -502,7 +532,7 @@ export const updateEventService = async (
                         publicId: uploadResult.public_id,
                         reason: error.message,
                     },
-                }
+                },
             );
 
             deleteSingleFile(uploadResult.public_id).catch((deleteErr) => {
@@ -515,7 +545,7 @@ export const updateEventService = async (
                             message: deleteErr.message,
                             stack: deleteErr.stack,
                         },
-                    }
+                    },
                 );
             });
         }
