@@ -19,10 +19,9 @@ export const register = async (req, res, next) => {
         source: "AuthController.register",
     });
 
-    try {
-        const { firstName, lastName, studentId, email, password, role } =
-            req.body;
+    const { firstName, lastName, studentId, email, password, role } = req.body;
 
+    try {
         registerLogger.info("Registration process started", {
             requestBody: { firstName, studentId, lastName, email, role },
         });
@@ -206,13 +205,6 @@ export const refreshAccessToken = async (req, res, next) => {
             refreshTokenLogger,
             deviceInfo.deviceName,
         );
-
-        res.clearCookie("refreshToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            path: "/",
-        });
 
         res.cookie("refreshToken", newRefreshToken, {
             httpOnly: true,
