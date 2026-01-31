@@ -40,8 +40,6 @@ export const createTestUser = async (userData) => {
     const saltRounds = process.env.NODE_ENV === "test" ? 1 : 10;
     const hashedPassword = await bcrypt.hash(userData.password, saltRounds);
 
-    console.log("DEBUG ENV:", process.env.NODE_ENV);
-
     const user = await db.User.create({
         id: uuidv7(),
         firstName: userData.firstName,
@@ -53,14 +51,12 @@ export const createTestUser = async (userData) => {
         confirmPassword: hashedPassword,
     });
 
-    console.log("DEBUG HASH:", hashedPassword);
-
     return user;
 };
 
-export const generateTestTokens = (userId, role) => {
+export const generateTestTokens = (userId, role, options = {}) => {
     const payload = { id: userId, role };
-    const { accessToken, refreshToken } = getToken(payload);
+    const { accessToken, refreshToken } = getToken(payload, options);
 
     return { accessToken, refreshToken };
 };
