@@ -27,7 +27,8 @@ export const register = async (req, res, next) => {
             requestBody: { firstName, studentId, lastName, email, role },
         });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const saltRounds = process.env.NODE_ENV === "test" ? 1 : 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
         const newUser = await db.User.create({
             role,
             firstName,
@@ -87,7 +88,7 @@ export const login = async (req, res, next) => {
         const { user, accessToken, refreshToken } = await handleUserLogin(
             data,
             deviceName,
-            loginLogger
+            loginLogger,
         );
 
         res.cookie("refreshToken", refreshToken, {
@@ -203,7 +204,7 @@ export const refreshAccessToken = async (req, res, next) => {
             user,
             oldRefreshToken,
             refreshTokenLogger,
-            deviceInfo.deviceName
+            deviceInfo.deviceName,
         );
 
         res.clearCookie("refreshToken", {
@@ -240,7 +241,7 @@ export const refreshAccessToken = async (req, res, next) => {
                     name: error.name,
                     statusCode: error.statusCode,
                 },
-            }
+            },
         );
 
         next(error);
