@@ -11,5 +11,7 @@ export default defineConfig({
             provider: "v8",
             reporter: ["text", "json", "html"],
         },
+        globalSetup: ["./test/setup/globalSetup.js"],
+        setupFiles: ["./test/setup/testSetup.js"],
     },
 });
