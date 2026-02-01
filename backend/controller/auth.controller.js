@@ -23,21 +23,67 @@ export const register = async (req, res, next) => {
 
     try {
         registerLogger.info("Registration process started", {
-            requestBody: { firstName, studentId, lastName, email, role },
+            requestBody: { firstName, lastName, studentId, email, role },
         });
+
+        const existingUser = await db.User.findOne({
+            where: {
+                email: email,
+            },
+        });
+
+        if (existingUser) {
+            registerLogger.warn("Registration failed: Email already exists", {
+                email,
+            });
+            return res.status(409).json({
+                message: "Email sudah terdaftar",
+            });
+        }
+
+        if (studentId) {
+            const existingStudentId = await db.User.findOne({
+                where: { studentId },
+            });
+
+            if (existingStudentId) {
+                registerLogger.warn(
+                    "Registration failed: Student ID already exists",
+                    {
+                        studentId,
+                    },
+                );
+                return res.status(409).json({
+                    message: "Student ID sudah terdaftar",
+                });
+            }
+        }
 
         const saltRounds = process.env.NODE_ENV === "test" ? 1 : 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        const newUser = await db.User.create({
+
+        const userData = {
             role,
             firstName,
             lastName,
             email,
             password: hashedPassword,
-        });
+        };
 
-        const userResponse = { ...newUser.toJSON() };
-        delete userResponse.password;
+        if (studentId) {
+            userData.studentId = studentId;
+        }
+
+        const newUser = await db.User.create(userData);
+        const userResponse = {
+            id: newUser.id,
+            firstName: newUser.firstName,
+            lastName: newUser.lastName,
+            email: newUser.email,
+            role: newUser.role,
+            ...(newUser.studentId && { studentId: newUser.studentId }),
+            createdAt: newUser.createdAt,
+        };
 
         registerLogger.info("User registration successful", {
             userId: newUser.id,
@@ -45,25 +91,71 @@ export const register = async (req, res, next) => {
             role: newUser.role,
         });
 
-        return res
-            .status(201)
-            .json({ message: "User Created", data: userResponse });
+        return res.status(201).json({
+            message: "User berhasil dibuat",
+            data: userResponse,
+        });
     } catch (error) {
         registerLogger.error("User registration failed", {
-            requestBody: {
-                firstName,
-                lastName,
-                email,
-                role,
-            },
             error: {
                 message: error.message,
                 stack: error.stack,
                 name: error.name,
+                ...(error.parent && {
+                    sqlMessage: error.parent.message,
+                    sqlCode: error.parent.code,
+                }),
             },
         });
 
-        next(error);
+        if (error.name === "SequelizeUniqueConstraintError") {
+            const field = error.errors[0]?.path || "field";
+            return res.status(409).json({
+                message: `${field} sudah terdaftar`,
+            });
+        }
+
+        if (error.name === "SequelizeValidationError") {
+            return res.status(400).json({
+                message: "Validasi gagal",
+                errors: error.errors.map((e) => ({
+                    field: e.path,
+                    message: e.message,
+                })),
+            });
+        }
+
+        if (error.name === "SequelizeDatabaseError") {
+            if (error.parent && error.parent.code === "ER_DATA_TOO_LONG") {
+                const match = error.parent.message.match(/column '(.+?)'/);
+                const column = match ? match[1] : "input";
+
+                return res.status(400).json({
+                    status: "fail",
+                    message: `Data pada '${column}' terlalu panjang.`,
+                });
+            }
+
+            if (
+                error.parent &&
+                error.parent.code === "ER_NO_REFERENCED_ROW_2"
+            ) {
+                return res.status(400).json({
+                    status: "fail",
+                    message: "Data referensi tidak valid (Foreign Key Error).",
+                });
+            }
+
+            if (error.name === "Error" && error.message.includes("bcrypt")) {
+                return res.status(500).json({
+                    status: "error",
+                    message:
+                        "Terjadi kesalahan enkripsi saat memproses registrasi.",
+                });
+            }
+
+            next(error);
+        }
     }
 };
 
