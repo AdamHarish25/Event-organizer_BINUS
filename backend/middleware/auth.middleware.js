@@ -10,11 +10,11 @@ export const authenticateBlacklistedToken = async (req, res, next) => {
     const token = authHeader ? authHeader.split(" ")[1] : null;
 
     try {
-        const isBlacklisted = await BlacklistedTokenModel.findAll({
+        const isBlacklisted = await BlacklistedTokenModel.findOne({
             where: { userId: user.id, token },
         });
 
-        if (isBlacklisted.length > 0) {
+        if (isBlacklisted) {
             logger.warn("Blacklisted token usage detected and blocked", {
                 correlationId,
                 source: "BlacklistAuthenticator",
@@ -32,7 +32,7 @@ export const authenticateBlacklistedToken = async (req, res, next) => {
             throw new AppError(
                 "Sesi Anda tidak lagi valid. Silakan login kembali.",
                 403,
-                "TOKEN_BLACKLISTED"
+                "TOKEN_BLACKLISTED",
             );
         }
         next();
@@ -47,7 +47,7 @@ export const authenticateBlacklistedToken = async (req, res, next) => {
                         message: error.message,
                         stack: error.stack,
                     },
-                }
+                },
             );
         }
         next(error);
