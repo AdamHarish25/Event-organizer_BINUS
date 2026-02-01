@@ -5,15 +5,21 @@ import { resolve } from "path";
 dotenv.config({ path: resolve(process.cwd(), ".env") });
 
 const emailSchema = Joi.string()
-    .email({ minDomainSegments: 2, tlds: { allow: false } })
+    .trim()
     .lowercase()
-    .pattern(/^[a-zA-Z0-9._%+-]+@(binus\.ac\.id|gmail\.com)$/)
+    .max(150)
+    .email({
+        minDomainSegments: 2,
+    })
+    .pattern(/@(?:binus\.ac\.id|binus\.edu)$/)
     .required()
     .messages({
-        "string.email": "Format email tidak valid.",
-        "string.pattern.base":
-            "Email harus menggunakan domain @binus.ac.id atau @gmail.com.",
+        "string.base": "Email harus berupa teks.",
         "string.empty": "Email tidak boleh kosong.",
+        "string.email": "Format email tidak valid.",
+        "string.max": "Email maksimal 255 karakter.",
+        "string.pattern.base":
+            "Email harus menggunakan domain @binus.ac.id atau @binus.edu",
         "any.required": "Email wajib diisi.",
     });
 
@@ -63,14 +69,14 @@ export const otpValidatorSchema = Joi.object({
 
 export const registerValidatorSchema = Joi.object({
     studentId: Joi.string()
+        .pattern(/^\d+$/)
         .length(10)
-        .alphanum()
         .optional()
-        .allow(null)
+        .allow(null, "")
         .messages({
-            "string.length": "Student ID harus terdiri dari 10 karakter.",
-            "string.alphanum":
-                "Student ID hanya boleh mengandung huruf dan angka.",
+            "string.pattern.base": "Student ID hanya boleh berisi angka.",
+            "string.length":
+                "Student ID harus terdiri dari tepat 10 digit angka.",
         }),
 
     role: Joi.string()
@@ -82,14 +88,14 @@ export const registerValidatorSchema = Joi.object({
             "any.required": "Role wajib diisi.",
         }),
 
-    firstName: Joi.string().min(1).max(20).required().messages({
+    firstName: Joi.string().trim().min(1).max(100).required().messages({
         "string.min": "First name minimal 1 karakter.",
         "string.max": "First name maksimal 20 karakter.",
         "string.empty": "First name tidak boleh kosong.",
         "any.required": "First name wajib diisi.",
     }),
 
-    lastName: Joi.string().min(1).max(20).required().messages({
+    lastName: Joi.string().trim().min(1).max(100).required().messages({
         "string.min": "Last name minimal 1 karakter.",
         "string.max": "Last name maksimal 20 karakter.",
         "string.empty": "Last name tidak boleh kosong.",
@@ -98,15 +104,26 @@ export const registerValidatorSchema = Joi.object({
 
     email: emailSchema,
 
-    password: Joi.string().min(8).max(64).required().messages({
-        "string.min": "Password minimal 8 karakter.",
-        "string.max": "Password maksimal 64 karakter.",
-        "string.empty": "Password tidak boleh kosong.",
-        "any.required": "Password wajib diisi.",
-    }),
+    password: Joi.string()
+        .min(8)
+        .max(128)
+        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+        .required()
+        .messages({
+            "string.min": "Password minimal 8 karakter.",
+            "string.max": "Password maksimal 128 karakter.",
+            "string.pattern.base":
+                "Password harus mengandung minimal 1 huruf kecil, 1 huruf besar, dan 1 angka.",
+            "string.empty": "Password tidak boleh kosong.",
+            "any.required": "Password wajib diisi.",
+        }),
 
-    confirmPassword: Joi.any().valid(Joi.ref("password")).required().messages({
-        "any.only": "Konfirmasi password harus sama dengan password.",
-        "any.required": "Konfirmasi password wajib diisi.",
-    }),
+    confirmPassword: Joi.string()
+        .valid(Joi.ref("password"))
+        .required()
+        .messages({
+            "any.only": "Konfirmasi password harus sama dengan password.",
+            "any.required": "Konfirmasi password wajib diisi.",
+        })
+        .strip(),
 });
