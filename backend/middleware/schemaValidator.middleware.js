@@ -16,27 +16,39 @@ export const schemaValidator = (schemas) => {
                     ? { ...req.body, image: req.file }
                     : req.body;
 
-                await schemas.body.validateAsync(data, {
-                    abortEarly: false,
-                    allowUnknown: true,
-                    convert: false,
-                });
-            }
-
-            if (schemas.params) {
-                await schemas.params.validateAsync(req.params, {
-                    abortEarly: false,
-                    allowUnknown: false,
-                    convert: false,
-                });
-            }
-
-            if (schemas.query) {
-                await schemas.query.validateAsync(req.query, {
+                const validatedData = await schemas.body.validateAsync(data, {
                     abortEarly: false,
                     allowUnknown: true,
                     convert: true,
                 });
+
+                req.body = validatedData;
+            }
+
+            if (schemas.params) {
+                const validatedParams = await schemas.params.validateAsync(
+                    req.params,
+                    {
+                        abortEarly: false,
+                        allowUnknown: false,
+                        convert: true,
+                    },
+                );
+
+                req.params = validatedParams;
+            }
+
+            if (schemas.query) {
+                const validatedQuery = await schemas.query.validateAsync(
+                    req.query,
+                    {
+                        abortEarly: false,
+                        allowUnknown: true,
+                        convert: true,
+                    },
+                );
+
+                req.query = validatedQuery;
             }
 
             next();
@@ -66,8 +78,8 @@ export const schemaValidator = (schemas) => {
                     "Invalid request data",
                     400,
                     "VALIDATION_ERROR",
-                    errors
-                )
+                    errors,
+                ),
             );
         }
     };
