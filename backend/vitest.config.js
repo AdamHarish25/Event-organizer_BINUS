@@ -1,10 +1,11 @@
 import { defineConfig } from "vitest/config";
+import { TEN_SECONDS } from "./constant/time.constant";
 
 export default defineConfig({
     test: {
         environment: "node",
         globals: true,
-        testTimeout: 10000,
+        testTimeout: TEN_SECONDS,
         restoreMocks: true,
         fileParallelism: false,
         maxConcurrency: 1,

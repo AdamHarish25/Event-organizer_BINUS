@@ -4,6 +4,7 @@ import AppError from "../utils/AppError.js";
 import { sequelize } from "../config/dbconfig.js";
 import { OTP } from "../model/index.js";
 import * as OTP_CONFIG from "../constant/otp.constant.js";
+import { ONE_MINUTE } from "../constant/time.constant.js";
 
 const validateOTPFormat = (otp) => {
     if (!otp || typeof otp !== "string") {
@@ -187,7 +188,7 @@ export const saveOTPToDatabase = async (userId, otp, transaction, logger) => {
         }
 
         const expiresAt = new Date(
-            Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000,
+            Date.now() + OTP_CONFIG.EXPIRY_MINUTES * ONE_MINUTE,
         );
 
         logger.info("Creating new OTP record", {

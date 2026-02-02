@@ -7,9 +7,9 @@ import extractDeviceInfo from "../utils/deviceInfo.js";
 import { renewAccessToken } from "../service/token.service.js";
 import { handleUserLogin, handleUserLogout } from "../service/auth.service.js";
 import logger from "../utils/logger.js";
+import { SEVEN_DAYS } from "../constant/time.constant.js";
 
 dotenv.config();
-const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
 export const register = async (req, res, next) => {
     const correlationId = req.headers["x-correlation-id"] || uuidv7();

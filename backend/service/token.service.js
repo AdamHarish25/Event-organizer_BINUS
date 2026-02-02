@@ -5,17 +5,19 @@ import getToken from "../utils/getToken.js";
 import AppError from "../utils/AppError.js";
 import { RefreshToken, ResetToken, BlacklistedToken } from "../model/index.js";
 import { hashToken } from "../utils/hashing.js";
+import {
+    FIVE_MINUTES,
+    FIFTEEN_MINUTES,
+    SEVEN_DAYS,
+} from "../constant/time.constant.js";
 
 dotenv.config();
-
-const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
-const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 export const saveNewRefreshToken = async (
     userId,
     newRefreshToken,
     deviceName,
-    loginLogger
+    loginLogger,
 ) => {
     try {
         loginLogger.info("Starting process to save new refresh token");
@@ -26,11 +28,11 @@ export const saveNewRefreshToken = async (
             order: [["expiresAt", "ASC"]],
         });
         loginLogger.info(
-            `Found ${userRefreshTokens.length} existing token records for user`
+            `Found ${userRefreshTokens.length} existing token records for user`,
         );
 
         const revokedToken = userRefreshTokens.find(
-            (token) => token.isRevoked === true
+            (token) => token.isRevoked === true,
         );
 
         const tokenData = {
@@ -42,7 +44,7 @@ export const saveNewRefreshToken = async (
         if (revokedToken) {
             loginLogger.info(
                 "Reusing a previously revoked token record to save the new token",
-                { tokenId: revokedToken.id }
+                { tokenId: revokedToken.id },
             );
             await RefreshToken.update(tokenData, {
                 where: { id: revokedToken.id },
@@ -60,7 +62,7 @@ export const saveNewRefreshToken = async (
             const oldestToken = userRefreshTokens[0];
             loginLogger.info(
                 "Overwriting the oldest refresh token record (session limit reached)",
-                { tokenId: oldestToken.id, deviceName }
+                { tokenId: oldestToken.id, deviceName },
             );
             await RefreshToken.update(tokenData, {
                 where: { id: oldestToken.id },
@@ -75,13 +77,13 @@ export const saveNewRefreshToken = async (
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "Gagal menyimpan sesi login karena masalah internal.",
             500,
-            "INTERNAL_SERVER_ERROR"
+            "INTERNAL_SERVER_ERROR",
         );
     }
 };
@@ -90,7 +92,7 @@ export const renewAccessToken = async (
     user,
     oldRefreshToken,
     refreshTokenLogger,
-    deviceName
+    deviceName,
 ) => {
     try {
         refreshTokenLogger.info("Searching for user's active refresh tokens");
@@ -102,12 +104,12 @@ export const renewAccessToken = async (
 
         if (!refreshTokenFromDB) {
             refreshTokenLogger.warn(
-                "Token refresh failed: No active refresh tokens found in DB for user"
+                "Token refresh failed: No active refresh tokens found in DB for user",
             );
             throw new AppError(
                 "Sesi tidak valid. Silakan login kembali.",
                 403,
-                "REFRESH_TOKEN_NOT_FOUND"
+                "REFRESH_TOKEN_NOT_FOUND",
             );
         }
 
@@ -117,18 +119,18 @@ export const renewAccessToken = async (
                 {
                     userId: user.id,
                     tokenId: refreshTokenFromDB.id,
-                }
+                },
             );
 
             await RefreshToken.update(
                 { isRevoked: true },
-                { where: { ownerId: user.id } }
+                { where: { ownerId: user.id } },
             );
 
             throw new AppError(
                 "Sesi terdeteksi ganda. Silakan login kembali demi keamanan.",
                 403,
-                "TOKEN_REUSE_DETECTED"
+                "TOKEN_REUSE_DETECTED",
             );
         }
 
@@ -142,12 +144,12 @@ export const renewAccessToken = async (
             throw new AppError(
                 "Sesi berakhir. Silakan login kembali.",
                 403,
-                "REFRESH_TOKEN_EXPIRED"
+                "REFRESH_TOKEN_EXPIRED",
             );
         }
 
         refreshTokenLogger.info(
-            "Matching refresh token found. Proceeding to generate new tokens."
+            "Matching refresh token found. Proceeding to generate new tokens.",
         );
 
         const payload = { id: user.id, role: user.role };
@@ -165,10 +167,10 @@ export const renewAccessToken = async (
             },
             {
                 where: { id: refreshTokenFromDB.id },
-            }
+            },
         );
         refreshTokenLogger.info(
-            "Successfully updated the refresh token record in database (token rotation)"
+            "Successfully updated the refresh token record in database (token rotation)",
         );
 
         return { newAccessToken, newRefreshToken };
@@ -185,13 +187,13 @@ export const renewAccessToken = async (
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "Gagal memperbarui token karena masalah internal.",
             500,
-            "INTERNAL_SERVER_ERROR"
+            "INTERNAL_SERVER_ERROR",
         );
     }
 };
@@ -201,14 +203,14 @@ export const saveResetTokenToDatabase = async (user, resetToken) => {
     await ResetToken.create({
         userId: user.id,
         token: hashedResetToken,
-        expiresAt: Date.now() + 5 * 60 * 1000,
+        expiresAt: Date.now() + FIVE_MINUTES,
     });
 };
 
 export const blacklistAccessToken = async (
     accessTokenFromUser,
     userId,
-    logoutLogger
+    logoutLogger,
 ) => {
     try {
         if (accessTokenFromUser) {
@@ -239,7 +241,7 @@ export const blacklistAccessToken = async (
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
     }
 };
@@ -247,7 +249,7 @@ export const blacklistAccessToken = async (
 export const revokeRefreshToken = async (
     refreshTokenFromUser,
     userId,
-    logoutLogger
+    logoutLogger,
 ) => {
     let finalUserId = userId;
     if (!finalUserId && refreshTokenFromUser) {
@@ -270,7 +272,7 @@ export const revokeRefreshToken = async (
 
         const [updatedRows] = await RefreshToken.update(
             { isRevoked: true },
-            { where: { token: tokenHash } }
+            { where: { token: tokenHash } },
         );
 
         if (updatedRows === 0) {
@@ -279,7 +281,7 @@ export const revokeRefreshToken = async (
                 {
                     userId: finalUserId || "unknown",
                     reason: "token_invalid_or_already_deleted",
-                }
+                },
             );
             return;
         }
@@ -300,7 +302,7 @@ export const revokeRefreshToken = async (
                 errorType: error.constructor.name,
                 errorMessage: error.message,
                 errorStack: !isAppError ? error.stack : undefined,
-            }
+            },
         );
     }
 };

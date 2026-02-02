@@ -1,13 +1,14 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import { uuidv7 } from "uuidv7";
 import db from "../../../model/index.js";
 import getToken from "../../../utils/getToken.js";
 import { hashToken } from "../../../utils/hashing.js";
-
-const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
-const FIFTEEN_MINUTES = 15 * 60 * 1000;
+import {
+    FIVE_MINUTES,
+    FIFTEEN_MINUTES,
+    SEVEN_DAYS,
+} from "../../../constant/time.constant.js";
 
 export const TEST_USERS = {
     student: {
@@ -92,7 +93,7 @@ export const createTestResetToken = async (userId) => {
     await db.ResetToken.create({
         userId,
         token: hashedToken,
-        expiresAt: Date.now() + 5 * 60 * 1000,
+        expiresAt: Date.now() + FIVE_MINUTES,
     });
 
     return token;

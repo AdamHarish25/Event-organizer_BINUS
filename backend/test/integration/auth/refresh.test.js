@@ -12,6 +12,7 @@ import {
     extractCookie,
 } from "../helpers/testHelpers.js";
 import { hashToken } from "../../../utils/hashing.js";
+import { SEVEN_DAYS } from "../../../constant/time.constant.js";
 
 dotenv.config();
 
@@ -337,7 +338,7 @@ describe("POST /auth/refresh", () => {
                 token: hashToken(tokens.refreshToken),
                 ownerId: reuseUser.id,
                 device: "Compromised Device",
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                expiresAt: new Date(Date.now() + SEVEN_DAYS),
                 isRevoked: true,
             });
 

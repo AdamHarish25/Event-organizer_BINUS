@@ -1,6 +1,7 @@
 import Joi from "joi";
 import dotenv from "dotenv";
 import { resolve } from "path";
+import { FIVE_MINUTES } from "../constant/time.constant";
 
 dotenv.config({ path: resolve(process.cwd(), ".env") });
 
@@ -81,7 +82,7 @@ const baseEventSchema = Joi.object({
 
                 const now = new Date();
                 const fiveMinutesFromNow = new Date(
-                    now.getTime() + 5 * 60 * 1000
+                    now.getTime() + FIVE_MINUTES,
                 );
 
                 if (eventStartDateTime <= fiveMinutesFromNow) {
@@ -138,7 +139,7 @@ const baseEventSchema = Joi.object({
                 "image/jpg",
                 "image/png",
                 "image/gif",
-                "image/webp"
+                "image/webp",
             )
             .required()
             .messages({

@@ -11,11 +11,10 @@ import {
 import { authenticateBlacklistedToken } from "../middleware/auth.middleware.js";
 import { schemaValidator } from "../middleware/schemaValidator.middleware.js";
 import { notificationParamsSchema } from "../validator/notification.validator.js";
+import { ONE_MINUTE } from "../constant/time.constant.js";
 
 dotenv.config({ path: "../.env" });
 const { ACCESS_JWT_SECRET } = process.env;
-
-const ONE_MINUTE = 60 * 1000;
 
 export const notificationLimiter = rateLimit({
     windowMs: ONE_MINUTE,
@@ -122,7 +121,7 @@ router.get(
     notificationLimiter,
     accessTokenValidator(ACCESS_JWT_SECRET),
     authenticateBlacklistedToken,
-    getNotification
+    getNotification,
 );
 
 /**
@@ -174,7 +173,7 @@ router.patch(
     accessTokenValidator(ACCESS_JWT_SECRET),
     authenticateBlacklistedToken,
     schemaValidator({ params: notificationParamsSchema }),
-    markAsRead
+    markAsRead,
 );
 
 export default router;
