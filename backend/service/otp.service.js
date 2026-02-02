@@ -3,13 +3,16 @@ import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
 import { sequelize } from "../config/dbconfig.js";
 import { OTP } from "../model/index.js";
+import dotenv from "dotenv";
+
+dotenv.config({ path: "../.env" });
 
 export const OTP_CONFIG = {
     MAX_ATTEMPTS: 3,
     EXPIRY_MINUTES: 5,
     RATE_LIMIT_WINDOW: 15,
     MAX_REQUESTS_PER_WINDOW: 5,
-    BCRYPT_ROUNDS: 12,
+    BCRYPT_ROUNDS: process.env.NODE_ENV === "test" ? 1 : 10,
     OTP_LENGTH: 6,
 };
 
@@ -21,14 +24,14 @@ const validateOTPFormat = (otp) => {
         throw new AppError(
             `OTP harus ${OTP_CONFIG.OTP_LENGTH} digit`,
             400,
-            "INVALID_LENGTH"
+            "INVALID_LENGTH",
         );
     }
     if (!/^\d+$/.test(otp)) {
         throw new AppError(
             "OTP hanya boleh berisi angka",
             400,
-            "INVALID_CHARACTER"
+            "INVALID_CHARACTER",
         );
     }
 };
@@ -36,33 +39,40 @@ const validateOTPFormat = (otp) => {
 export const validateOTP = async (user, otp, logger) => {
     try {
         logger.info("OTP validation process started in service");
+
         validateOTPFormat(otp);
 
         const validationResult = await sequelize.transaction(async (t) => {
             const otpRecord = await OTP.findOne({
                 where: {
                     userId: user.id,
-                    verified: false,
-                    valid: true,
+                    verifiedAt: null,
+                    revokedAt: null,
                     expiresAt: { [Op.gt]: new Date() },
                 },
                 lock: t.LOCK.UPDATE,
                 transaction: t,
+                order: [["createdAt", "DESC"]],
             });
 
             if (!otpRecord) {
                 logger.warn(
-                    "OTP validation failed: No valid/unexpired OTP record found for user"
+                    "OTP validation failed: No valid/unexpired OTP record found for user",
                 );
                 return { success: false, code: "EXPIRED_OR_INVALID_OTP" };
             }
+
             logger.info("Valid OTP record found, proceeding to compare hash");
 
             const isValid = await bcrypt.compare(otp, otpRecord.code);
 
             if (!isValid) {
-                await otpRecord.increment("attempt", { by: 1, transaction: t });
                 const newAttempt = otpRecord.attempt + 1;
+
+                await otpRecord.update(
+                    { attempt: newAttempt },
+                    { transaction: t },
+                );
 
                 logger.warn("Invalid OTP submitted", {
                     context: {
@@ -73,14 +83,15 @@ export const validateOTP = async (user, otp, logger) => {
 
                 if (newAttempt >= OTP_CONFIG.MAX_ATTEMPTS) {
                     await otpRecord.update(
-                        { valid: false },
-                        { transaction: t }
+                        { revokedAt: new Date() },
+                        { transaction: t },
                     );
+
                     logger.warn(
-                        "Max OTP attempts exceeded, token has been invalidated",
+                        "Max OTP attempts exceeded, token has been revoked",
                         {
                             context: { otpId: otpRecord.id },
-                        }
+                        },
                     );
                     return { success: false, code: "MAX_ATTEMPTS_EXCEEDED" };
                 }
@@ -93,13 +104,8 @@ export const validateOTP = async (user, otp, logger) => {
             }
 
             await otpRecord.update(
-                {
-                    valid: false,
-                    verified: true,
-                    attempt: otpRecord.attempt + 1,
-                    verifiedAt: new Date(),
-                },
-                { transaction: t }
+                { verifiedAt: new Date() },
+                { transaction: t },
             );
 
             return { success: true };
@@ -110,31 +116,33 @@ export const validateOTP = async (user, otp, logger) => {
                 case "EXPIRED_OR_INVALID_OTP":
                     throw new AppError(
                         "OTP sudah tidak berlaku atau telah kedaluwarsa",
-                        401,
-                        "EXPIRED_OTP"
+                        400,
+                        "EXPIRED_OTP",
                     );
                 case "MAX_ATTEMPTS_EXCEEDED":
                     throw new AppError(
-                        "OTP sudah tidak berlaku karena terlalu banyak percobaan",
-                        401,
-                        "MAX_ATTEMPTS_EXCEEDED"
+                        "OTP hangus karena terlalu banyak percobaan salah.",
+                        400,
+                        "MAX_ATTEMPTS_EXCEEDED",
                     );
                 case "INVALID_OTP":
                     throw new AppError(
-                        `OTP tidak valid. Sisa percobaan: ${validationResult.remainingAttempts}`,
-                        401,
-                        "INVALID_OTP"
+                        `OTP salah. Sisa percobaan: ${validationResult.remainingAttempts}`,
+                        400,
+                        "INVALID_OTP",
                     );
                 default:
                     throw new AppError(
                         "Terjadi kesalahan validasi OTP",
                         500,
-                        "VALIDATION_ERROR"
+                        "VALIDATION_ERROR",
                     );
             }
         }
 
         logger.info("OTP successfully validated and marked as verified");
+
+        return true;
     } catch (error) {
         if (error instanceof AppError) {
             throw error;
@@ -149,9 +157,9 @@ export const validateOTP = async (user, otp, logger) => {
         });
 
         throw new AppError(
-            "Terjadi kesalahan saat validasi OTP",
+            "Terjadi kesalahan sistem saat validasi OTP",
             500,
-            "VALIDATION_ERROR"
+            "VALIDATION_ERROR",
         );
     }
 };
@@ -166,22 +174,22 @@ export const saveOTPToDatabase = async (userId, otp, transaction, logger) => {
         logger.info("OTP hashed successfully", { context: { userId } });
 
         const [updatedRows] = await OTP.update(
-            { valid: false, invalidatedAt: new Date() },
+            {
+                revokedAt: new Date(),
+            },
             {
                 where: {
                     userId,
-                    verified: false,
-                    valid: true,
+                    verifiedAt: null,
+                    revokedAt: null,
                     expiresAt: { [Op.gt]: new Date() },
-                    attempt: { [Op.lt]: OTP_CONFIG.MAX_ATTEMPTS },
                 },
                 transaction,
-                returning: false,
-            }
+            },
         );
 
         if (updatedRows > 0) {
-            logger.info("Invalidated previous valid OTP(s)", {
+            logger.info("Revoked previous active OTP(s)", {
                 context: {
                     count: updatedRows,
                     userId: userId,
@@ -190,7 +198,7 @@ export const saveOTPToDatabase = async (userId, otp, transaction, logger) => {
         }
 
         const expiresAt = new Date(
-            Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
+            Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000,
         );
 
         logger.info("Creating new OTP record", {
@@ -200,13 +208,14 @@ export const saveOTPToDatabase = async (userId, otp, transaction, logger) => {
                 hasTransaction: !!transaction,
             },
         });
+
         const newOTP = await OTP.create(
             {
                 userId,
                 code: otpHash,
                 expiresAt,
             },
-            { transaction }
+            { transaction },
         );
 
         logger.info("New OTP record created successfully in database", {
@@ -231,13 +240,13 @@ export const saveOTPToDatabase = async (userId, otp, transaction, logger) => {
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "Gagal menyimpan OTP karena masalah internal.",
             500,
-            "SAVE_OTP_ERROR"
+            "SAVE_OTP_ERROR",
         );
     }
 };
