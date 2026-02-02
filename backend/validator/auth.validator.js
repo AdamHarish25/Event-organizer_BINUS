@@ -39,9 +39,9 @@ const otpSchema = Joi.string().min(6).max(6).required().messages({
 
 const resetTokenSchema = Joi.string().min(64).max(64).required().messages({
     "string.min": "Reset token tidak valid.",
-    "string.min": "Reset token tidak valid.",
+    "string.max": "Reset token tidak valid.",
     "string.empty": "Reset token tidak boleh kosong.",
-    "any.required": "OTP wajib diisi.",
+    "any.required": "Reset token wajib diisi.",
 });
 
 export const loginValidatorSchema = Joi.object({
