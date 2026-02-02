@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import { Op } from "sequelize";
 import { fileURLToPath } from "url";
 import getToken from "../utils/getToken.js";
 import { saveNewRefreshToken } from "../service/token.service.js";
@@ -19,7 +20,7 @@ import { sequelize } from "../config/dbconfig.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BCRPT_SALT_ROUDS = 10;
+const BCRYPT_SALT_ROUDS = process.env.NODE_ENV === "test" ? 1 : 10;
 
 dotenv.config({ path: "../.env" });
 
@@ -37,7 +38,7 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
             throw new AppError(
                 "Email atau Password salah.",
                 401,
-                "CLIENT_AUTH_ERROR"
+                "CLIENT_AUTH_ERROR",
             );
         }
 
@@ -53,7 +54,7 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
             throw new AppError(
                 "Email atau Password salah.",
                 401,
-                "CLIENT_AUTH_ERROR"
+                "CLIENT_AUTH_ERROR",
             );
         }
 
@@ -67,7 +68,7 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
             user.id,
             refreshToken,
             deviceName,
-            loginLogger
+            loginLogger,
         );
 
         loginLogger.info("New refresh token saved successfully", {
@@ -96,13 +97,13 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "An internal server error occurred",
             500,
-            "INTERNAL_SERVER_ERROR"
+            "INTERNAL_SERVER_ERROR",
         );
     }
 };
@@ -171,21 +172,21 @@ export const requestPasswordReset = async (email, logger) => {
                     name: error.name,
                     code: error.code,
                 },
-            }
+            },
         );
 
         if (error.code && error.code.startsWith("E")) {
             throw new AppError(
                 "Gagal mengirimkan email verifikasi.",
                 502,
-                "EMAIL_SERVICE_ERROR"
+                "EMAIL_SERVICE_ERROR",
             );
         }
 
         throw new AppError(
             "Terjadi kesalahan internal.",
             500,
-            "INTERNAL_SERVER_ERROR"
+            "INTERNAL_SERVER_ERROR",
         );
     }
 };
@@ -193,33 +194,38 @@ export const requestPasswordReset = async (email, logger) => {
 export const resetPasswordHandler = async (
     user,
     newPassword,
-    resetToken,
-    logger
+    inputTokenRaw,
+    logger,
 ) => {
     try {
         logger.info("Password reset handling process started in service");
 
         const tokenRecords = await ResetToken.findAll({
-            where: { userId: user.id, verified: false },
+            where: {
+                userId: user.id,
+                expiresAt: { [Op.gt]: new Date() },
+            },
         });
 
         if (!tokenRecords || tokenRecords.length === 0) {
             logger.warn(
-                "Password reset failed: No active reset tokens found for user"
+                "Password reset failed: No active/unexpired reset tokens found for user",
             );
             throw new AppError(
                 "Token reset tidak valid atau telah kedaluwarsa.",
-                403,
-                "INVALID_TOKEN"
+                400,
+                "INVALID_TOKEN",
             );
         }
+
         logger.info(
-            `Found ${tokenRecords.length} active reset token(s). Starting comparison.`
+            `Found ${tokenRecords.length} active candidate token(s). Starting comparison.`,
         );
 
         let matchedData = null;
+
         for (const dataRow of tokenRecords) {
-            const isMatch = await bcrypt.compare(resetToken, dataRow.token);
+            const isMatch = await bcrypt.compare(inputTokenRaw, dataRow.token);
             if (isMatch) {
                 matchedData = dataRow;
                 break;
@@ -228,39 +234,45 @@ export const resetPasswordHandler = async (
 
         if (!matchedData) {
             logger.warn(
-                "Password reset failed: Provided reset token did not match any stored tokens"
+                "Password reset failed: Provided token did not match any stored hash",
             );
             throw new AppError(
-                "Token reset tidak valid atau telah kedaluwarsa.",
-                403,
-                "INVALID_TOKEN"
+                "Token reset tidak valid.",
+                400,
+                "INVALID_TOKEN",
             );
         }
+
         logger.info(
-            "Reset token matched successfully. Proceeding to update password."
+            "Reset token matched successfully. Proceeding to update password.",
         );
 
         const hashedNewPassword = await bcrypt.hash(
             newPassword,
-            BCRPT_SALT_ROUDS
+            BCRYPT_SALT_ROUDS,
         );
 
         await sequelize.transaction(async (t) => {
             await User.update(
                 { password: hashedNewPassword },
-                { where: { id: user.id }, transaction: t }
+                { where: { id: user.id }, transaction: t },
             );
-            logger.info("User password record has been updated successfully");
+            logger.info("User password updated successfully");
 
             await ResetToken.destroy({
                 where: { userId: user.id },
                 transaction: t,
             });
-            logger.info("All reset tokens for the user have been destroyed");
+            logger.info(
+                "All reset tokens for the user have been destroyed/invalidated",
+            );
         });
+
         logger.info(
-            "Database transaction for password reset committed successfully"
+            "Database transaction for password reset committed successfully",
         );
+
+        return true;
     } catch (error) {
         if (error instanceof AppError) {
             throw error;
@@ -274,13 +286,13 @@ export const resetPasswordHandler = async (
                     stack: error.stack,
                     name: error.name,
                 },
-            }
+            },
         );
 
         throw new AppError(
             "Gagal mereset password karena masalah internal.",
             500,
-            "INTERNAL_SERVER_ERROR"
+            "INTERNAL_SERVER_ERROR",
         );
     }
 };

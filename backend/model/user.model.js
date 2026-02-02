@@ -12,7 +12,7 @@ const userModel = (sequelize, DataTypes) => {
                 unique: true,
             },
             studentId: {
-                type: DataTypes.CHAR(10),
+                type: DataTypes.STRING(10),
                 unique: true,
                 allowNull: true,
                 defaultValue: null,
@@ -22,15 +22,15 @@ const userModel = (sequelize, DataTypes) => {
                 allowNull: false,
             },
             firstName: {
-                type: DataTypes.STRING(20),
+                type: DataTypes.STRING(255),
                 allowNull: false,
             },
             lastName: {
-                type: DataTypes.STRING(20),
+                type: DataTypes.STRING(255),
                 allowNull: false,
             },
             email: {
-                type: DataTypes.STRING(50),
+                type: DataTypes.STRING(255),
                 allowNull: false,
                 unique: true,
                 validate: {
@@ -40,9 +40,6 @@ const userModel = (sequelize, DataTypes) => {
             password: {
                 type: DataTypes.STRING(64),
                 allowNull: false,
-                validate: {
-                    len: [8, 64],
-                },
             },
             deletedAt: {
                 type: DataTypes.DATE,
@@ -63,7 +60,7 @@ const userModel = (sequelize, DataTypes) => {
                     name: "role_idx",
                 },
             ],
-        }
+        },
     );
 
     User.associate = (models) => {

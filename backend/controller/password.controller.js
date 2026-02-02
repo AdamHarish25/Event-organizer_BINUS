@@ -47,7 +47,7 @@ export const forgotPassword = async (req, res, next) => {
                     name: error.name,
                     statusCode: error.statusCode,
                 },
-            }
+            },
         );
 
         next(error);
@@ -89,7 +89,7 @@ export const verifyOTP = async (req, res, next) => {
         await saveResetTokenToDatabase(user, resetToken, controllerLogger);
 
         controllerLogger.info(
-            "OTP verified successfully, reset token generated and saved"
+            "OTP verified successfully, reset token generated and saved",
         );
 
         res.status(200).json({
@@ -110,7 +110,7 @@ export const verifyOTP = async (req, res, next) => {
                     name: error.name,
                     statusCode: error.statusCode,
                 },
-            }
+            },
         );
 
         next(error);
@@ -145,14 +145,14 @@ export const resetPassword = async (req, res, next) => {
         }
         controllerLogger.info(
             "User found, proceeding with password reset handler",
-            { context: { userId: user.id } }
+            { context: { userId: user.id } },
         );
 
         await resetPasswordHandler(
             user,
             newPassword,
             resetToken,
-            controllerLogger
+            controllerLogger,
         );
 
         controllerLogger.info("Password reset successfully for user");
@@ -174,7 +174,7 @@ export const resetPassword = async (req, res, next) => {
                     name: error.name,
                     statusCode: error.statusCode,
                 },
-            }
+            },
         );
 
         next(error);
