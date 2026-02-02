@@ -3,18 +3,7 @@ import { Op } from "sequelize";
 import AppError from "../utils/AppError.js";
 import { sequelize } from "../config/dbconfig.js";
 import { OTP } from "../model/index.js";
-import dotenv from "dotenv";
-
-dotenv.config({ path: "../.env" });
-
-export const OTP_CONFIG = {
-    MAX_ATTEMPTS: 3,
-    EXPIRY_MINUTES: 5,
-    RATE_LIMIT_WINDOW: 15,
-    MAX_REQUESTS_PER_WINDOW: 5,
-    BCRYPT_ROUNDS: process.env.NODE_ENV === "test" ? 1 : 10,
-    OTP_LENGTH: 6,
-};
+import * as OTP_CONFIG from "../constant/otp.constant.js";
 
 const validateOTPFormat = (otp) => {
     if (!otp || typeof otp !== "string") {
