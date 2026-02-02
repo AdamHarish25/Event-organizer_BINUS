@@ -1,4 +1,5 @@
-import bcrypt, { hash } from "bcrypt";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { uuidv7 } from "uuidv7";
 import db from "../../../model/index.js";
@@ -83,15 +84,15 @@ export const blacklistTestToken = async (userId, token) => {
 };
 
 export const createTestResetToken = async (userId) => {
-    const token = uuidv7();
+    const token = crypto.randomBytes(32).toString("hex");
+
     const saltRounds = process.env.NODE_ENV === "test" ? 1 : 10;
     const hashedToken = await bcrypt.hash(token, saltRounds);
 
     await db.ResetToken.create({
         userId,
         token: hashedToken,
-        verified: false,
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        expiresAt: Date.now() + 5 * 60 * 1000,
     });
 
     return token;
