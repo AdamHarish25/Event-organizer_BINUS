@@ -1,4 +1,5 @@
 import { uuidv7 } from "uuidv7";
+import { Op } from "sequelize";
 
 const OTPModel = (sequelize, DataTypes) => {
     const Otp = sequelize.define(
@@ -24,27 +25,19 @@ const OTPModel = (sequelize, DataTypes) => {
                 type: DataTypes.STRING,
                 allowNull: false,
             },
-            expiresAt: {
-                type: DataTypes.DATE,
-                allowNull: false,
-            },
-            verified: {
-                type: DataTypes.BOOLEAN,
-                defaultValue: false,
-            },
-            valid: {
-                type: DataTypes.BOOLEAN,
-                defaultValue: true,
-            },
             attempt: {
                 type: DataTypes.INTEGER,
                 defaultValue: 0,
+            },
+            expiresAt: {
+                type: DataTypes.DATE,
+                allowNull: false,
             },
             verifiedAt: {
                 type: DataTypes.DATE,
                 allowNull: true,
             },
-            invalidatedAt: {
+            revokedAt: {
                 type: DataTypes.DATE,
                 allowNull: true,
             },
@@ -54,15 +47,26 @@ const OTPModel = (sequelize, DataTypes) => {
             timestamps: true,
             indexes: [
                 {
-                    name: "otp_verification_idx",
-                    fields: ["userId", "code", "verified"],
+                    name: "otp_user_latest_idx",
+                    fields: ["userId", "createdAt"],
                 },
                 {
                     name: "otp_expires_at_idx",
                     fields: ["expiresAt"],
                 },
             ],
-        }
+            scopes: {
+                valid: {
+                    where: {
+                        verifiedAt: null,
+                        revokedAt: null,
+                        expiresAt: {
+                            [Op.gt]: new Date(),
+                        },
+                    },
+                },
+            },
+        },
     );
 
     Otp.associate = (models) => {
