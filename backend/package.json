@@ -21,6 +21,7 @@
     },
     "homepage": "https://github.com/AdamHarish25/Event-organizer_BINUS#readme",
     "dependencies": {
+        "@aws-sdk/client-s3": "^3.981.0",
         "bcrypt": "^6.0.0",
         "cloudinary": "^2.7.0",
         "cookie-parser": "^1.4.7",
