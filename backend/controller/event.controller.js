@@ -37,7 +37,7 @@ export const eventViewer = async (req, res, next) => {
         const page = Math.max(1, parseInt(req.query.page) || 1);
         const limit = Math.min(
             100,
-            Math.max(1, parseInt(req.query.limit) || 10)
+            Math.max(1, parseInt(req.query.limit) || 10),
         );
 
         const fetcher = eventDataFetchers[role];
@@ -49,7 +49,7 @@ export const eventViewer = async (req, res, next) => {
             throw new AppError(
                 "Kamu tidak memiliki hak untuk melihat sumberdaya ini.",
                 403,
-                "FORBIDDEN"
+                "FORBIDDEN",
             );
         }
 
@@ -102,7 +102,6 @@ export const createEvent = async (req, res, next) => {
     try {
         controllerLogger.info("Event creation process started", {
             context: {
-                eventData: req.body,
                 fileData: {
                     originalname: req.file?.originalname,
                     mimetype: req.file?.mimetype,
@@ -115,7 +114,7 @@ export const createEvent = async (req, res, next) => {
             user.id,
             req.body,
             req.file,
-            controllerLogger
+            controllerLogger,
         );
 
         controllerLogger.info("Event created successfully", {
@@ -212,7 +211,7 @@ export const createFeedback = async (req, res, next) => {
             eventId,
             user.id,
             feedback,
-            controllerLogger
+            controllerLogger,
         );
 
         controllerLogger.info("Feedback sent successfully");
@@ -234,7 +233,7 @@ export const createFeedback = async (req, res, next) => {
                     name: error.name,
                     statusCode: error.statusCode,
                 },
-            }
+            },
         );
 
         next(error);
@@ -274,7 +273,7 @@ export const editEvent = async (req, res, next) => {
             adminId,
             data,
             image,
-            controllerLogger
+            controllerLogger,
         );
 
         controllerLogger.info("Event updated successfully", {
@@ -328,7 +327,7 @@ export const rejectEvent = async (req, res, next) => {
             eventId,
             superAdminId,
             feedback,
-            controllerLogger
+            controllerLogger,
         );
 
         controllerLogger.info("Event rejected successfully");
@@ -390,7 +389,7 @@ export const approveEvent = async (req, res, next) => {
                     name: error.name,
                     statusCode: error.statusCode,
                 },
-            }
+            },
         );
 
         next(error);

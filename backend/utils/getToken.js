@@ -1,32 +1,39 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import dotenv from "dotenv";
 
 dotenv.config({ path: "../.env" });
-const { ACCESS_JWT_SECRET, REFRESH_JWT_SECRET } = process.env;
 
-const getAccessToken = (payload) => {
-    const newAccessToken = jwt.sign(
-        payload,
-        ACCESS_JWT_SECRET,
-        { expiresIn: "15m" },
-        { algorithm: "HS256" }
-    );
+const getAccessToken = (payload, options = {}) => {
+    const { ACCESS_JWT_SECRET } = process.env;
+    if (!ACCESS_JWT_SECRET) {
+        throw new Error("ACCESS_JWT_SECRET is not defined in .env");
+    }
+
+    const { expiresIn = "15m", algorithm = "HS256" } = options;
+    const newAccessToken = jwt.sign(payload, ACCESS_JWT_SECRET, {
+        expiresIn,
+        algorithm,
+    });
     return newAccessToken;
 };
 
 const getRefreshToken = (payload) => {
-    const newRefreshToken = jwt.sign(
-        payload,
-        REFRESH_JWT_SECRET,
-        { expiresIn: "7d" },
-        { algorithm: "HS256" }
-    );
+    const { REFRESH_JWT_SECRET } = process.env;
+    if (!REFRESH_JWT_SECRET) {
+        throw new Error("REFRESH_JWT_SECRET is not defined in .env");
+    }
+    const uniquePayload = { ...payload, jti: crypto.randomUUID() };
+    const newRefreshToken = jwt.sign(uniquePayload, REFRESH_JWT_SECRET, {
+        expiresIn: "7d",
+        algorithm: "HS256",
+    });
     return newRefreshToken;
 };
 
-export default function getToken(payload) {
+export default function getToken(payload, options = {}) {
     return {
-        accessToken: getAccessToken(payload),
+        accessToken: getAccessToken(payload, options.accessToken),
         refreshToken: getRefreshToken(payload),
     };
 }

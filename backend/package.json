@@ -5,8 +5,10 @@
     "main": "server.js",
     "type": "module",
     "scripts": {
-        "test": "cross-env NODE_ENV=test jest --testTimeout=10000 --detectOpenHandles",
-        "dev": "nodemon server.js"
+        "dev": "nodemon server.js",
+        "test": "cross-env NODE_ENV=test vitest",
+        "test:run": "cross-env NODE_ENV=test vitest run",
+        "coverage": "cross-env NODE_ENV=test vitest run --coverage"
     },
     "repository": {
         "type": "git",
@@ -19,11 +21,13 @@
     },
     "homepage": "https://github.com/AdamHarish25/Event-organizer_BINUS#readme",
     "dependencies": {
+        "@aws-sdk/client-s3": "^3.981.0",
         "bcrypt": "^6.0.0",
         "cloudinary": "^2.7.0",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.5",
         "date-fns": "^4.1.0",
+        "date-fns-tz": "^3.2.0",
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
         "express-rate-limit": "^8.0.1",
@@ -43,9 +47,10 @@
         "winston": "^3.17.0"
     },
     "devDependencies": {
-        "cross-env": "^10.0.0",
-        "jest": "^30.0.5",
+        "@vitest/coverage-v8": "^4.0.16",
+        "cross-env": "^10.1.0",
         "nodemon": "^3.1.11",
-        "supertest": "^7.1.4"
+        "supertest": "^7.1.4",
+        "vitest": "^4.0.16"
     }
 }
