@@ -4,7 +4,7 @@ import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
 import https from "https";
 import dns from "node:dns";
-import { ONE_MINUTE } from "../constant/time.constant";
+import { ONE_MINUTE } from "../constant/time.constant.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
