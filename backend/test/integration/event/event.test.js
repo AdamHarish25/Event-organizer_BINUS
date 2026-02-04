@@ -6,140 +6,86 @@ import {
     beforeAll,
     afterAll,
     beforeEach,
-    afterEach,
 } from "vitest";
 import request from "supertest";
 import { uuidv7 } from "uuidv7";
-import app from "../../app.js";
-import { sequelize } from "../../config/dbconfig.js";
-import { Event, User, Notification } from "../../model/index.js";
-import getToken from "../../utils/getToken.js";
-import { deleteSingleFile } from "../../service/upload.service.js";
+import app from "../../../app.js";
+import { Event, Notification } from "../../../model/index.js";
+import { deleteFromR2 } from "../../../service/r2service.js";
+import {
+    TEST_USERS,
+    createTestUser,
+    generateTestTokens,
+    getFutureDate,
+} from "../helpers/testHelpers.js";
 
-vi.mock("../../service/upload.service.js", () => ({
-    uploadPosterImage: vi.fn().mockResolvedValue({
-        secure_url: "http://example.com/mock-image.jpg",
-        public_id: "mock_public_id",
+vi.mock("../../../service/r2service.js", () => ({
+    uploadToR2: vi.fn().mockResolvedValue({
+        url: "http://example.com/mock-image.jpg",
+        key: "mock_r2_key",
     }),
-    deleteSingleFile: vi.fn().mockResolvedValue(true),
-    deleteEventFolder: vi.fn().mockResolvedValue(true),
+    deleteFromR2: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("../../socket/index.js", () => {
-    const mockIo = {
-        emit: vi.fn(),
-        to: vi.fn().mockReturnThis(),
-        in: vi.fn().mockReturnThis(),
-    };
-
-    mockIo.to = vi.fn(() => mockIo);
-    mockIo.in = vi.fn(() => mockIo);
-
-    return {
-        default: {
-            init: vi.fn(),
-            getIO: vi.fn(() => mockIo),
-        },
-    };
-});
+vi.mock("../../../socket/index.js", () => ({
+    default: {
+        getIO: vi.fn().mockReturnValue({
+            to: vi.fn().mockReturnThis(),
+            emit: vi.fn(),
+        }),
+    },
+}));
 
 describe("Event Integration Tests", () => {
     let studentToken, adminToken, superAdminToken, anotherAdminToken;
     let studentUser, adminUser, superAdminUser, anotherAdminUser;
     let testImageBuffer;
 
-    const getFutureDate = (daysToAdd) => {
-        const date = new Date();
-        date.setDate(date.getDate() + daysToAdd);
-        return date.toISOString().split("T")[0];
-    };
-
     const TOMORROW = getFutureDate(1);
     const NEXT_MONTH = getFutureDate(30);
     const PAST_DATE = getFutureDate(-5);
 
-    beforeAll(async () => {
-        await sequelize.sync({ force: true });
-
+    beforeAll(() => {
         const VALID_1PX_JPG =
             "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8yps8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9U6KKKAP/2Q==";
 
         const validImageBuffer = Buffer.from(VALID_1PX_JPG, "base64");
         const paddingBuffer = Buffer.alloc(1500);
         testImageBuffer = Buffer.concat([validImageBuffer, paddingBuffer]);
-
-        studentUser = {
-            id: uuidv7(),
-            email: "student@gmail.com",
-            password: "hashedpassword",
-            confirmPassword: "hashedpassword",
-            firstName: "Student",
-            lastName: "User",
-            role: "student",
-            nim: "1234567890",
-        };
-
-        adminUser = {
-            id: uuidv7(),
-            email: "admin@gmail.com",
-            password: "hashedpassword",
-            confirmPassword: "hashedpassword",
-            firstName: "Admin",
-            lastName: "User",
-            role: "admin",
-        };
-
-        superAdminUser = {
-            id: uuidv7(),
-            email: "superadmin@gmail.com",
-            password: "hashedpassword",
-            confirmPassword: "hashedpassword",
-            firstName: "Super",
-            lastName: "Admin",
-            role: "super_admin",
-        };
-
-        anotherAdminUser = {
-            id: uuidv7(),
-            email: "another@gmail.com",
-            password: "hashedpassword",
-            confirmPassword: "hashedpassword",
-            firstName: "Another",
-            lastName: "Admin",
-            role: "admin",
-        };
-
-        const allUsers = [
-            studentUser,
-            adminUser,
-            superAdminUser,
-            anotherAdminUser,
-        ];
-
-        await User.bulkCreate(allUsers);
-
-        studentToken = getToken({
-            id: studentUser.id,
-            role: studentUser.role,
-        }).accessToken;
-        adminToken = getToken({
-            id: adminUser.id,
-            role: adminUser.role,
-        }).accessToken;
-        superAdminToken = getToken({
-            id: superAdminUser.id,
-            role: superAdminUser.role,
-        }).accessToken;
-        anotherAdminToken = getToken({
-            id: anotherAdminUser.id,
-            role: anotherAdminUser.role,
-        }).accessToken;
     });
 
     beforeEach(async () => {
         vi.clearAllMocks();
-        await Event.destroy({ where: {} });
-        await Notification.destroy({ where: {} });
+
+        studentUser = await createTestUser(TEST_USERS.student);
+        adminUser = await createTestUser(TEST_USERS.admin);
+        superAdminUser = await createTestUser(TEST_USERS.superAdmin);
+
+        anotherAdminUser = await createTestUser({
+            role: "admin",
+            firstName: "Another",
+            lastName: "Admin",
+            email: "another@gmail.com",
+            password: "password123",
+            confirmPassword: "password123",
+        });
+
+        studentToken = generateTestTokens(
+            studentUser.id,
+            studentUser.role,
+        ).accessToken;
+        adminToken = generateTestTokens(
+            adminUser.id,
+            adminUser.role,
+        ).accessToken;
+        superAdminToken = generateTestTokens(
+            superAdminUser.id,
+            superAdminUser.role,
+        ).accessToken;
+        anotherAdminToken = generateTestTokens(
+            anotherAdminUser.id,
+            anotherAdminUser.role,
+        ).accessToken;
     });
 
     describe("POST /event - Create Event", () => {
@@ -164,15 +110,13 @@ describe("Event Integration Tests", () => {
 
                 expect(response.status).toBe(500);
 
-                expect(deleteSingleFile).toHaveBeenCalledTimes(1);
-                expect(deleteSingleFile).toHaveBeenCalledWith(
-                    "mock_public_id",
-                    expect.anything(),
-                );
+                expect(deleteFromR2).toHaveBeenCalledTimes(1);
+                expect(deleteFromR2).toHaveBeenCalledWith("mock_r2_key");
             } finally {
                 createSpy.mockRestore();
             }
         });
+
         describe("Success Cases", () => {
             it("should create event successfully with all required fields", async () => {
                 const eventData = {
@@ -353,6 +297,25 @@ describe("Event Integration Tests", () => {
                     .attach("image", largeBuffer, "large.jpg")
                     .expect(400);
             });
+
+            it("should reject file with invalid mime type", async () => {
+                const textBuffer = Buffer.from("Ini bukan gambar", "utf-8");
+
+                await request(app)
+                    .post("/event")
+                    .set("Authorization", `Bearer ${adminToken}`)
+                    .field("eventName", "Test Invalid Mime")
+                    .field("date", NEXT_MONTH)
+                    .field("startTime", "10:00")
+                    .field("endTime", "12:00")
+                    .field("location", "Test Location")
+                    .field("description", "Test Description")
+                    .attach("image", textBuffer, {
+                        filename: "test.txt",
+                        contentType: "text/plain",
+                    })
+                    .expect(400);
+            });
         });
 
         describe("Authorization", () => {
@@ -413,10 +376,6 @@ describe("Event Integration Tests", () => {
 
         afterAll(() => {
             vi.restoreAllMocks();
-        });
-
-        beforeEach(async () => {
-            await Event.destroy({ where: {} });
         });
 
         describe("Student Role", () => {
@@ -1203,8 +1162,4 @@ describe("Event Integration Tests", () => {
                 .expect(400);
         });
     });
-});
-
-afterAll(async () => {
-    await sequelize.close();
 });
