@@ -35,7 +35,7 @@ export const uploadPosterImage = (buffer, options, logger) => {
                         },
                     });
                     resolve(result);
-                }
+                },
             );
             uploadStream.end(buffer);
         } catch (setupError) {
@@ -46,7 +46,7 @@ export const uploadPosterImage = (buffer, options, logger) => {
                         message: setupError.message,
                         stack: setupError.stack,
                     },
-                }
+                },
             );
             reject(setupError);
         }
@@ -80,7 +80,7 @@ export const deleteEventFolder = async (folderPath, logger) => {
         throw new AppError(
             "Gagal menghapus folder di cloud.",
             500,
-            "CLOUD_DELETE_ERROR"
+            "CLOUD_DELETE_ERROR",
         );
     }
 };
@@ -110,7 +110,7 @@ export const deleteSingleFile = async (imagePublicId, logger) => {
         throw new AppError(
             "Gagal menghapus file di cloud.",
             500,
-            "CLOUD_DELETE_ERROR"
+            "CLOUD_DELETE_ERROR",
         );
     }
 };
