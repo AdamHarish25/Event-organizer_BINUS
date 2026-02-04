@@ -52,12 +52,12 @@ const eventModel = (sequelize, DataTypes) => {
                     "pending",
                     "revised",
                     "approved",
-                    "rejected"
+                    "rejected",
                 ),
                 allowNull: false,
                 defaultValue: "pending",
             },
-            imagePublicId: {
+            imageKey: {
                 type: DataTypes.STRING,
                 allowNull: true,
             },
@@ -85,7 +85,7 @@ const eventModel = (sequelize, DataTypes) => {
                     fields: ["date"],
                 },
             ],
-        }
+        },
     );
 
     Event.associate = (models) => {
