@@ -1,20 +1,13 @@
 import { uuidv7 } from "uuidv7";
 import AppError from "../../utils/AppError.js";
 import {
-    generateEventAssetPaths,
-    getFolderPathFromPublicId,
-} from "../../utils/pathHelper.js";
-import {
-    uploadPosterImage,
-    deleteSingleFile,
-    deleteEventFolder,
-} from "../upload.service.js";
-import {
     createAndEmitNotification,
     createAndEmitBroadcastNotification,
 } from "../notification.service.js";
 import { sequelize } from "../../config/dbconfig.js";
 import { Event, User } from "../../model/index.js";
+import { generateEventAssetPaths } from "../../utils/storageHelper.js";
+import { uploadToR2, deleteFromR2 } from "../r2service.js";
 
 export const NOTIFICATION_TYPES = {
     EVENT_CREATED: "event_created",
@@ -37,28 +30,28 @@ export const createEventService = async (userId, data, file, logger) => {
         speaker,
         description,
     } = data;
+
     const eventId = uuidv7();
-    const { fullFolderPath, fileName } = generateEventAssetPaths(eventId);
+    const { key, folderPath } = generateEventAssetPaths(
+        eventId,
+        file.originalname,
+        date,
+    );
 
     let uploadResult;
     try {
         logger.info("Event creation and notification process started");
 
-        logger.info("Attempting to upload poster image to cloud storage", {
-            context: { folder: fullFolderPath, fileName },
+        logger.info("Attempting to upload poster image to R2", {
+            context: { folder: folderPath, key },
         });
-        uploadResult = await uploadPosterImage(
-            file.buffer,
-            {
-                folder: fullFolderPath,
-                public_id: fileName,
-            },
-            logger,
-        );
+
+        uploadResult = await uploadToR2(file.buffer, key, file.mimetype);
+
         logger.info("Image uploaded successfully", {
             context: {
-                url: uploadResult.secure_url,
-                publicId: uploadResult.public_id,
+                url: uploadResult.url,
+                key: uploadResult.key,
             },
         });
 
@@ -78,9 +71,7 @@ export const createEventService = async (userId, data, file, logger) => {
             ]);
 
             if (!creator) {
-                logger.warn(
-                    "Event creation failed: Creator user not found in database",
-                );
+                logger.warn("Event creation failed: Creator user not found");
                 throw new AppError(
                     "User tidak ditemukan",
                     404,
@@ -104,11 +95,12 @@ export const createEventService = async (userId, data, file, logger) => {
                     speaker,
                     description,
                     status: "pending",
-                    imageUrl: uploadResult.secure_url,
-                    imagePublicId: uploadResult.public_id,
+                    imageUrl: uploadResult.url,
+                    imageKey: uploadResult.key,
                 },
                 { transaction: t },
             );
+
             logger.info("Event record created successfully in database", {
                 context: { eventId: event.id },
             });
@@ -160,8 +152,8 @@ export const createEventService = async (userId, data, file, logger) => {
 
             return event;
         });
-        logger.info("Database transaction committed successfully");
 
+        logger.info("Database transaction committed successfully");
         logger.info("Socket notifications emitted to rooms", {
             context: { rooms: [ROOMS.SUPER_ADMIN, userId] },
         });
@@ -170,30 +162,27 @@ export const createEventService = async (userId, data, file, logger) => {
     } catch (error) {
         if (uploadResult) {
             logger.warn(
-                "Database operation failed. Rolling back: deleting uploaded image to prevent orphans.",
+                "Database operation failed. Rolling back: deleting uploaded image from R2.",
                 {
                     context: {
-                        publicId: uploadResult.public_id,
+                        key: uploadResult.key,
                         reason: error.message,
                     },
                 },
             );
 
-            deleteSingleFile(uploadResult.public_id, logger).catch(
-                (deleteErr) => {
-                    logger.error(
-                        "Failed to delete orphaned file from cloud storage during rollback",
-                        {
-                            context: { publicId: uploadResult.public_id },
-
-                            error: {
-                                message: deleteErr.message,
-                                stack: deleteErr.stack,
-                            },
+            deleteFromR2(uploadResult.key).catch((deleteErr) => {
+                logger.error(
+                    "Failed to delete orphaned file from R2 during rollback",
+                    {
+                        context: { key: uploadResult.key },
+                        error: {
+                            message: deleteErr.message,
+                            stack: deleteErr.stack,
                         },
-                    );
-                },
-            );
+                    },
+                );
+            });
         }
 
         if (!(error instanceof AppError)) {
@@ -279,55 +268,34 @@ export const deleteEventService = async (adminId, eventId, logger) => {
                 socketConfig: {
                     room: ROOMS.SUPER_ADMIN,
                     title: `Event "${eventDataForCleanupAndNotify.eventName}" has been deleted.`,
-                    message: `${adminName} removed this event from the system. No further action is required`,
+                    message: `${adminName} removed this event from the system.`,
                 },
                 transaction: t,
                 logger,
             });
         });
+
         logger.info("Database transaction committed successfully");
 
-        if (eventDataForCleanupAndNotify?.imagePublicId) {
+        if (eventDataForCleanupAndNotify?.imageKey) {
+            const r2Key = eventDataForCleanupAndNotify.imageKey;
+
             logger.info(
                 "Event has an associated image. Starting cloud cleanup process.",
-                {
-                    context: {
-                        publicId: eventDataForCleanupAndNotify.imagePublicId,
-                    },
-                },
+                { context: { key: r2Key } },
             );
 
             try {
-                const folderPath = getFolderPathFromPublicId(
-                    eventDataForCleanupAndNotify.imagePublicId,
-                    logger,
-                );
+                await deleteFromR2(r2Key);
 
-                if (folderPath) {
-                    await deleteEventFolder(folderPath, logger);
-                    logger.info(
-                        "Cloud folder and associated assets deleted successfully",
-                        { context: { folderPath } },
-                    );
-                } else {
-                    logger.warn(
-                        "Could not determine folder path from publicId, skipping cloud deletion.",
-                        {
-                            context: {
-                                publicId:
-                                    eventDataForCleanupAndNotify.imagePublicId,
-                            },
-                        },
-                    );
-                }
+                logger.info("Cloud asset deleted successfully", {
+                    context: { key: r2Key },
+                });
             } catch (cloudError) {
                 logger.error(
                     "Cloud asset cleanup failed after successful DB deletion. Manual cleanup may be required.",
                     {
-                        context: {
-                            publicId:
-                                eventDataForCleanupAndNotify.imagePublicId,
-                        },
+                        context: { key: r2Key },
                         error: {
                             message: cloudError.message,
                             stack: cloudError.stack,
@@ -367,28 +335,53 @@ export const updateEventService = async (
     logger,
 ) => {
     let uploadResult;
-    let oldImagePublicId = null;
+    let oldImageKey = null;
+
     try {
         logger.info("Event update process started in service", {
             context: { eventId },
         });
 
-        if (image) {
-            const { fullFolderPath, fileName } =
-                generateEventAssetPaths(eventId);
-            logger.info("New image provided. Attempting to upload...", {
-                context: { folder: fullFolderPath },
-            });
-            uploadResult = await uploadPosterImage(
-                image.buffer,
-                {
-                    folder: fullFolderPath,
-                    public_id: fileName,
-                },
-                logger,
+        const existingEvent = await Event.findOne({
+            where: { id: eventId, creatorId: adminId },
+        });
+
+        if (!existingEvent) {
+            logger.warn(
+                "Update failed: Event not found or user lacks permission",
+                { context: { eventId, attemptedByUserId: adminId } },
             );
+            throw new AppError(
+                "Event tidak ditemukan atau Anda tidak berhak mengubahnya.",
+                404,
+                "NOT_FOUND",
+            );
+        }
+
+        if (image) {
+            const effectiveDate = data.date || existingEvent.date;
+
+            const { key, folderPath } = generateEventAssetPaths(
+                eventId,
+                image.originalname,
+                effectiveDate,
+            );
+
+            logger.info("New image provided. Attempting to upload...", {
+                context: { folder: folderPath },
+            });
+
+            uploadResult = await uploadToR2(image.buffer, key, image.mimetype);
+
+            if (existingEvent.imageKey) {
+                oldImageKey = existingEvent.imageKey;
+            }
+
             logger.info("New image uploaded successfully", {
-                context: { url: uploadResult.secure_url },
+                context: {
+                    url: uploadResult.url,
+                    key: uploadResult.key,
+                },
             });
         } else {
             logger.info(
@@ -398,27 +391,9 @@ export const updateEventService = async (
 
         logger.info("Starting database transaction");
         const updatedEvent = await sequelize.transaction(async (t) => {
-            const event = await Event.findOne({
-                where: { id: eventId, creatorId: adminId },
+            const eventToUpdate = await Event.findByPk(eventId, {
                 transaction: t,
             });
-
-            if (!event) {
-                logger.warn(
-                    "Update failed: Event not found or user lacks permission",
-                    { context: { eventId, attemptedByUserId: adminId } },
-                );
-                throw new AppError(
-                    "Event tidak ditemukan atau Anda tidak berhak mengubahnya.",
-                    404,
-                    "NOT_FOUND",
-                );
-            }
-            logger.info("Event found in database. Proceeding with update.");
-
-            if (uploadResult && event.imagePublicId) {
-                oldImagePublicId = event.imagePublicId;
-            }
 
             const allowedUpdates = {
                 eventName: data.eventName,
@@ -428,10 +403,8 @@ export const updateEventService = async (
                 location: data.location,
                 speaker: data.speaker,
                 description: data.description,
-                imageUrl: uploadResult ? uploadResult.secure_url : undefined,
-                imagePublicId: uploadResult
-                    ? uploadResult.public_id
-                    : undefined,
+                imageUrl: uploadResult ? uploadResult.url : undefined,
+                imageKey: uploadResult ? uploadResult.key : undefined,
             };
 
             Object.keys(allowedUpdates).forEach(
@@ -444,7 +417,7 @@ export const updateEventService = async (
                 context: { eventId, updates: allowedUpdates },
             });
 
-            await event.update(
+            await eventToUpdate.update(
                 { ...allowedUpdates, status: "pending" },
                 { transaction: t },
             );
@@ -457,11 +430,11 @@ export const updateEventService = async (
                 transaction: t,
             });
 
-            const updatedPayloadData = { ...event.dataValues };
+            const updatedPayloadData = { ...eventToUpdate.dataValues };
 
             await Promise.all([
                 createAndEmitBroadcastNotification({
-                    eventId: event.id,
+                    eventId: eventToUpdate.id,
                     senderId: adminId,
                     recipients: superAdmins,
                     notificationType: NOTIFICATION_TYPES.EVENT_UPDATED,
@@ -483,7 +456,7 @@ export const updateEventService = async (
                     logger,
                 }),
                 createAndEmitNotification({
-                    eventId: event.id,
+                    eventId: eventToUpdate.id,
                     senderId: adminId,
                     recipientId: adminId,
                     notificationType: NOTIFICATION_TYPES.EVENT_PENDING,
@@ -506,18 +479,20 @@ export const updateEventService = async (
                 }),
             ]);
 
-            return event;
+            return eventToUpdate;
         });
 
         logger.info("Database transaction committed successfully");
 
-        if (oldImagePublicId) {
+        if (oldImageKey) {
             logger.info("Deleting old image replaced during update", {
-                context: { oldImagePublicId },
+                context: { oldImageKey },
             });
-            deleteSingleFile(oldImagePublicId, logger).catch((err) => {
-                logger.error("Background task: Failed to delete old image", {
-                    error: err.message,
+
+            deleteFromR2(oldImageKey).catch((deleteErr) => {
+                logger.error("Failed to delete old file from R2 (Clean up)", {
+                    context: { key: oldImageKey },
+                    error: deleteErr.message,
                 });
             });
         }
@@ -526,34 +501,20 @@ export const updateEventService = async (
     } catch (error) {
         if (uploadResult) {
             logger.warn(
-                "Database operation failed. Rolling back: deleting uploaded image.",
-                {
-                    context: {
-                        publicId: uploadResult.public_id,
-                        reason: error.message,
-                    },
-                },
+                "Transaction failed. Rolling back: deleting newly uploaded image.",
+                { context: { imageKey: uploadResult.key } },
             );
 
-            deleteSingleFile(uploadResult.public_id).catch((deleteErr) => {
-                logger.error(
-                    "Failed to delete orphaned file from cloud during rollback",
-                    {
-                        context: { publicId: uploadResult.public_id },
-
-                        error: {
-                            message: deleteErr.message,
-                            stack: deleteErr.stack,
-                        },
-                    },
-                );
+            deleteFromR2(uploadResult.key).catch((deleteErr) => {
+                logger.error("Failed to rollback R2 file", {
+                    error: deleteErr.message,
+                });
             });
         }
 
         if (!(error instanceof AppError)) {
             logger.error("An unexpected error occurred in editEventService", {
                 context: { eventId },
-
                 error: {
                     message: error.message,
                     stack: error.stack,
