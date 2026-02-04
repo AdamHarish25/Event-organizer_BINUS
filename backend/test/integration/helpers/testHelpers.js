@@ -113,4 +113,10 @@ export const extractCookie = (response, cookieName) => {
     return match ? match[1] : null;
 };
 
+export const getFutureDate = (daysToAdd) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysToAdd);
+    return date.toISOString().split("T")[0];
+};
+
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
