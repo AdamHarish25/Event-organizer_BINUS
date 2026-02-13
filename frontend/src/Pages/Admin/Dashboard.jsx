@@ -6,7 +6,7 @@ import FeedbackPanel from '../Component/FeedbackPanel';
 import EventFormModal from '../Component/EventFormModal';
 import { ConfirmationModal } from '../Component/ConfirmationModal';
 import { StatusModal } from '../Component/StatusModal';
-import { createEvent, editEvent, deleteEvent, getEvents } from '../../services/eventService';
+import { createEvent, editEvent, deleteEvent, getEvents } from '../../services/event';
 import notificationService from '../../services/notificationService';
 import socketService from '../../services/socketService';
 import RealtimeClock from '../Component/realtime';

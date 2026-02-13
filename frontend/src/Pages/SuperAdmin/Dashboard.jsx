@@ -7,7 +7,7 @@ import { ConfirmationModal } from '../Component/ConfirmationModal';
 import TextInputModal from '../Component/TextInputModal';
 import EventDetailModal from '../Component/EventDetailModal';
 import FeedbackPanel from '../Component/FeedbackPanel';
-import { approveEvent, rejectEvent, getEvents, sendFeedback } from '../../services/eventService';
+import { approveEvent, rejectEvent, getEvents, sendFeedback } from '../../services/event';
 import notificationService from '../../services/notificationService';
 import socketService from '../../services/socketService';
 import RealtimeClock from '../Component/realtime';

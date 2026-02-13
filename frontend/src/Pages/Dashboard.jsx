@@ -13,8 +13,7 @@ import "./Component/background.css";
 import { FaLocationPin } from "react-icons/fa6";
 import RealtimeClock from "./Component/realtime";
 import MainHeader from "./Component/MainHeader";
-import apiClient from "../services/api";
-
+import { getEventsByCategory } from "../services/event";
 
 const DashboardUser = () => {
   const [currentEvents, setCurrentEvents] = useState([]);
@@ -37,8 +36,8 @@ const DashboardUser = () => {
     const fetchCategorizedEvents = async () => {
       setLoading(true);
       try {
-        const response = await apiClient.get('/event/');
-        const { current, thisWeek, next } = response.data.data;
+        const responseData = await getEventsByCategory();
+        const { current, thisWeek, next } = responseData.data;
 
         setCurrentEvents(current || []);
         setThisWeekEvents(thisWeek || []);
