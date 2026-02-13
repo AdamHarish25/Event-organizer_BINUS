@@ -10,6 +10,8 @@ import notificationModel from "./notification.model.js";
 
 const db = {};
 
+sequelize.sync({ force: true });
+
 db.User = userModel(sequelize, DataTypes);
 db.Event = eventModel(sequelize, DataTypes);
 db.RefreshToken = refreshTokenModel(sequelize, DataTypes);
