@@ -11,6 +11,7 @@ const LoginUserPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -29,8 +30,14 @@ const LoginUserPage = () => {
 
     } catch (err) {
       // Menangkap error dari backend dan menampilkannya
-      const errorMessage = err.response?.data?.message || 'Login failed. Please check your credentials.';
+      const apiData = err.response?.data || {};
+      const errorMessage = apiData.message || 'Login failed. Please check your credentials.';
       setError(errorMessage);
+      if (apiData.errorField) {
+        setFieldErrors(apiData.errorField);
+      } else {
+        setFieldErrors({});
+      }
     } finally {
       setLoading(false);
     }
@@ -79,6 +86,7 @@ const LoginUserPage = () => {
               required
             />
           </div>
+          {fieldErrors.email && <p className="text-red-300 text-xs mt-1">{fieldErrors.email}</p>}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaLock /></div>
             <div className={className.separator}></div>
@@ -91,6 +99,7 @@ const LoginUserPage = () => {
               required
             />
           </div>
+          {fieldErrors.password && <p className="text-red-300 text-xs mt-1">{fieldErrors.password}</p>}
 
           {error && <p className="text-red-300 text-sm">{error}</p>}
           <div className="flex justify-between items-center text-sm mt-1">

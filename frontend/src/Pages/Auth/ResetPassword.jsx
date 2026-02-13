@@ -31,29 +31,40 @@ const ResetPassword = () => {
     e.preventDefault();
     setError('');
     setMessage('');
-    
+
     // Validate password using backend rules
     const passwordValidationErrors = validatePassword(password);
     setPasswordErrors(passwordValidationErrors);
-    
+
     if (passwordValidationErrors.length > 0) {
       setError('Please fix the password field.');
       return;
     }
-    
+
     if (!email || !token) {
       setError('Data tidak lengkap. Silakan kembali ke halaman sebelumnya.');
       return;
     }
-    
+
     setLoading(true);
     try {
       const res = await authService.resetPassword(email, password, token);
       setMessage(res.message || 'Password berhasil direset.');
       setTimeout(() => navigate('/login/admin'), 1000);
     } catch (err) {
-      const msg = err?.message || err?.error || 'Gagal reset password.';
-      setError(typeof msg === 'string' ? msg : 'Gagal reset password.');
+      if (err.errorField) {
+        // Jika ada validasi field dari backend
+        const fieldMsgs = Object.values(err.errorField).join(', ');
+        setError(fieldMsgs || err.message || 'Gagal reset password.');
+
+        // Optional: Update passwordErrors list if backend sends specific rules
+        if (err.errorField.password) {
+          setPasswordErrors(prev => [...prev, err.errorField.password]);
+        }
+      } else {
+        const msg = err?.message || err?.error || 'Gagal reset password.';
+        setError(typeof msg === 'string' ? msg : 'Gagal reset password.');
+      }
     } finally {
       setLoading(false);
     }

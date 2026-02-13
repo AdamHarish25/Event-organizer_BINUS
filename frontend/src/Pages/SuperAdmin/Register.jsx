@@ -16,7 +16,7 @@ const RegisterSuperAdminPage = () => {
     confirmPassword: '',
     role: 'super_admin', // Default role untuk registrasi publik
   });
-  
+
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
@@ -49,7 +49,7 @@ const RegisterSuperAdminPage = () => {
     try {
       // Kirim semua field termasuk confirmPassword agar sinkron dengan validasi backend
       const response = await authService.register(formData);
-      
+
       setSuccessMessage(response.message || 'Registration successful! Redirecting to login...');
 
       setTimeout(() => {
@@ -62,6 +62,17 @@ const RegisterSuperAdminPage = () => {
       setError(errorMessage);
       if (apiData.errorField && typeof apiData.errorField === 'object') {
         setFieldErrors(apiData.errorField);
+      } else if (Array.isArray(apiData.errors)) {
+        // Handle Sequelize validation errors (array)
+        const sequelizeErrors = {};
+        apiData.errors.forEach(errObj => {
+          if (errObj.field && errObj.message) {
+            sequelizeErrors[errObj.field] = errObj.message;
+          }
+        });
+        setFieldErrors(sequelizeErrors);
+      } else {
+        setFieldErrors({});
       }
     } finally {
       setLoading(false);
@@ -99,14 +110,14 @@ const RegisterSuperAdminPage = () => {
         <p className="text-sm mb-6">Join us! Fill in the details below to create your account.</p>
 
         <form className={className.form} onSubmit={handleSubmit}>
-         {/* First Name */}
-         <div className={className.inputGroup}>
+          {/* First Name */}
+          <div className={className.inputGroup}>
             <div className={className.icon}><FaUser /></div>
             <div className={className.separator}></div>
             <input name="firstName" type="text" placeholder="First Name" className={className.input} value={formData.firstName} onChange={handleChange} required />
           </div>
           {fieldErrors.firstName && <p className="text-red-300 text-xs mt-1">{fieldErrors.firstName}</p>}
-          
+
           {/* Last Name */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaUser /></div>
@@ -114,7 +125,7 @@ const RegisterSuperAdminPage = () => {
             <input name="lastName" type="text" placeholder="Last Name" className={className.input} value={formData.lastName} onChange={handleChange} required />
           </div>
           {fieldErrors.lastName && <p className="text-red-300 text-xs mt-1">{fieldErrors.lastName}</p>}
-          
+
           {/* Email */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaEnvelope /></div>
@@ -122,7 +133,7 @@ const RegisterSuperAdminPage = () => {
             <input name="email" type="email" placeholder="Email (@binus.ac.id or @gmail.com)" className={className.input} value={formData.email} onChange={handleChange} required />
           </div>
           {fieldErrors.email && <p className="text-red-300 text-xs mt-1">{fieldErrors.email}</p>}
-          
+
           {/* Password */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaLock /></div>
@@ -130,7 +141,7 @@ const RegisterSuperAdminPage = () => {
             <input name="password" type="password" placeholder="Password (min. 8 characters)" className={className.input} value={formData.password} onChange={handleChange} required />
           </div>
           {fieldErrors.password && <p className="text-red-300 text-xs mt-1">{fieldErrors.password}</p>}
-       
+
           {/* Confirm Password */}
           <div className={className.inputGroup}>
             <div className={className.icon}><FaLock /></div>
@@ -138,13 +149,13 @@ const RegisterSuperAdminPage = () => {
             <input name="confirmPassword" type="password" placeholder="Confirm Password" className={className.input} value={formData.confirmPassword} onChange={handleChange} required />
           </div>
           {fieldErrors.confirmPassword && <p className="text-red-300 text-xs mt-1">{fieldErrors.confirmPassword}</p>}
-          
+
           {/* Role (disembunyikan, karena user publik diasumsikan sebagai 'student') */}
           <input name="role" type="hidden" value="student" />
 
           {error && <p className="text-red-300 text-sm">{error}</p>}
           {successMessage && <p className="text-green-300 text-sm">{successMessage}</p>}
-          
+
           <div className="flex justify-between items-center">
             <button type="submit" className={className.button} disabled={loading}>
               {loading ? 'Registering...' : 'Register'}
@@ -152,7 +163,7 @@ const RegisterSuperAdminPage = () => {
           </div>
         </form>
         <div className={className.loginLink}>
-            <p>Already have an account? <Link to="/login/superadmin" className="font-bold hover:underline">Login here</Link></p>
+          <p>Already have an account? <Link to="/login/superadmin" className="font-bold hover:underline">Login here</Link></p>
         </div>
       </div>
 
