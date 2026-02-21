@@ -121,7 +121,7 @@ const FeedbackPanel = ({ feedbackList, onFeedbackClick }) => {
                         />
                     ))
                 ) : (
-                    mappedList.length === 0 ? (<p className="text-center text-gray-500 py-10">Refresh your browser</p>) : (<p className="text-center text-gray-500 py-10">No notifications.</p>)
+                    mappedList.length >= 1 ? (<p className="text-center text-gray-500 py-10">Refresh your browser</p>) : (<p className="text-center text-gray-500 py-10">No notifications.</p>)
                 )}
             </div>
 
