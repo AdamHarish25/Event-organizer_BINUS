@@ -108,16 +108,27 @@ export const handleUserLogin = async (data, deviceName, loginLogger) => {
     }
 };
 
-export const handleUserLogout = async (token, userId, logoutLogger) => {
-    const accessTokenFromUser = token?.accessTokenFromUser ?? null;
-    const refreshTokenFromUser = token?.refreshTokenFromUser ?? null;
-
+export const handleUserLogout = async (
+    accessTokenFromUser,
+    refreshTokenFromUser,
+    userId,
+    logoutLogger,
+) => {
     logoutLogger.info("Starting logout process...");
 
-    await Promise.allSettled([
-        blacklistAccessToken(accessTokenFromUser, userId, logoutLogger),
-        revokeRefreshToken(refreshTokenFromUser, userId, logoutLogger),
-    ]);
+    const tasks = [];
+    if (accessTokenFromUser) {
+        tasks.push(
+            blacklistAccessToken(accessTokenFromUser, userId, logoutLogger),
+        );
+    }
+    if (refreshTokenFromUser) {
+        tasks.push(
+            revokeRefreshToken(refreshTokenFromUser, userId, logoutLogger),
+        );
+    }
+
+    await Promise.allSettled(tasks);
 
     logoutLogger.info("Logout process completed.");
 };

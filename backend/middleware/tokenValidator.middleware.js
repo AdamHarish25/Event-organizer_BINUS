@@ -44,6 +44,8 @@ export const accessTokenValidator = (secretKey, options = {}) => {
                 ? authHeader.substring(7)
                 : null;
 
+            req.rawAccessToken = accessToken;
+
             const decoded = parseAndVerifyToken({
                 token: accessToken,
                 type: "accessToken",

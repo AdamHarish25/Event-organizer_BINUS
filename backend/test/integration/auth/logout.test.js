@@ -35,7 +35,7 @@ describe("POST /auth/logout", () => {
                     .expect(200);
 
                 expect(response.body).toMatchObject({
-                    message: "Logout Successfully.",
+                    message: "Logout successful.",
                 });
             });
 
@@ -151,7 +151,7 @@ describe("POST /auth/logout", () => {
                     .set("Cookie", [`refreshToken=${refreshToken}`])
                     .expect(200);
 
-                expect(response.body.message).toBe("Logout Successfully.");
+                expect(response.body.message).toBe("Logout successful.");
             });
         });
 
@@ -169,7 +169,7 @@ describe("POST /auth/logout", () => {
                     .set("Cookie", [`refreshToken=${refreshToken}`])
                     .expect(200);
 
-                expect(response.body.message).toBe("Logout Successfully.");
+                expect(response.body.message).toBe("Logout successful.");
             });
 
             it("should handle logout when refresh token already revoked", async () => {
@@ -183,7 +183,7 @@ describe("POST /auth/logout", () => {
                     .set("Cookie", [`refreshToken=${refreshToken}`])
                     .expect(200);
 
-                expect(response.body.message).toBe("Logout Successfully.");
+                expect(response.body.message).toBe("Logout successful.");
             });
         });
 
@@ -230,7 +230,7 @@ describe("POST /auth/logout", () => {
                     .post("/auth/logout")
                     .expect(200);
 
-                expect(response.body.message).toMatch(/Logout Successfully/);
+                expect(response.body.message).toMatch(/Logout successful/);
             });
 
             it("should handle logout with invalid access token format", async () => {
@@ -240,7 +240,7 @@ describe("POST /auth/logout", () => {
                     .set("Cookie", [`refreshToken=dummy-cookie`])
                     .expect(200);
 
-                expect(response.body.message).toMatch(/Logout Successfully/);
+                expect(response.body.message).toMatch(/Logout successful/);
             });
 
             it("should handle logout with invalid refresh token", async () => {
@@ -250,7 +250,7 @@ describe("POST /auth/logout", () => {
                     .set("Cookie", ["refreshToken=invalid-refresh-token"])
                     .expect(200);
 
-                expect(response.body.message).toBe("Logout Successfully.");
+                expect(response.body.message).toBe("Logout successful.");
             });
         });
     });
