@@ -8,6 +8,8 @@ import cookieParser from "cookie-parser";
 import errorHandler from "./middleware/errorHandler.js";
 import router from "./routes/index.js";
 import AppError from "./utils/AppError.js";
+import requestLogger from "./middleware/requestLogger.js";
+import logger from "./utils/logger.js";
 import "./utils/scheduler.js";
 
 import swaggerJsdoc from "swagger-jsdoc";
@@ -198,6 +200,7 @@ app.use(
     })
 );
 
+app.use(requestLogger);
 app.use(router);
 app.use("/", (req, res, next) => {
     next(new AppError("Page Not Found", 404, "PAGE_NOT_FOUND"));
