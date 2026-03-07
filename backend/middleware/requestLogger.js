@@ -3,7 +3,6 @@ import logger from "../utils/logger.js";
 const requestLogger = (req, res, next) => {
     const startTime = Date.now();
     res.on("finish", () => {
-        console.log(`DEBUG: Status = ${res.statusCode}`);
         const duration = Date.now() - startTime;
         const logData = {
             method: req.method,
