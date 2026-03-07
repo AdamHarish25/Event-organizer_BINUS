@@ -227,36 +227,33 @@ export const logout = async (req, res, next) => {
         userId: user?.id ?? "anonymous",
     });
 
+    const CLEAR_COOKIE_OPTIONS = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+    };
+
     try {
         logoutLogger.info("Logout process initiated");
 
-        const authHeader = req.headers?.authorization;
-        const accessToken = authHeader?.startsWith("Bearer ")
-            ? authHeader.substring(7)
-            : null;
+        const accessToken = req.rawAccessToken ?? null;
         const refreshToken = req.cookies?.refreshToken ?? null;
 
-        const token = {
-            accessTokenFromUser: accessToken,
-            refreshTokenFromUser: refreshToken,
-        };
-
         if (accessToken || refreshToken) {
-            await handleUserLogout(token, user?.id, logoutLogger);
+            await handleUserLogout(
+                accessToken,
+                refreshToken,
+                user?.id,
+                logoutLogger,
+            );
         }
 
-        res.clearCookie("refreshToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            path: "/",
-        });
+        res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
 
         logoutLogger.info("User logout successful");
 
-        res.status(200).json({
-            message: "Logout Successfully.",
-        });
+        return res.status(200).json({ message: "Logout successful." });
     } catch (error) {
         logoutLogger.error("Logout controller encountered unexpected error", {
             error: {
@@ -265,16 +262,8 @@ export const logout = async (req, res, next) => {
             },
         });
 
-        res.clearCookie("refreshToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            path: "/",
-        });
-
-        return res.status(200).json({
-            message: "Logout Successfully (Fallback).",
-        });
+        res.clearCookie("refreshToken", CLEAR_COOKIE_OPTIONS);
+        return res.status(200).json({ message: "Logout successful." });
     }
 };
 

@@ -213,16 +213,28 @@ export const blacklistAccessToken = async (
     logoutLogger,
 ) => {
     try {
-        if (accessTokenFromUser) {
+        let expiresAt;
+        try {
+            const decoded = jwt.decode(accessTokenFromUser);
+            expiresAt = decoded?.exp
+                ? new Date(decoded.exp * 1000)
+                : new Date(Date.now() + FIFTEEN_MINUTES);
+        } catch {
+            expiresAt = new Date(Date.now() + FIFTEEN_MINUTES);
+        }
+
+        if (expiresAt > new Date()) {
             await BlacklistedToken.create({
                 token: accessTokenFromUser,
                 userId,
                 reason: "logout",
-                expiresAt: new Date(Date.now() + FIFTEEN_MINUTES),
+                expiresAt,
             });
             logoutLogger.info("Access token successfully added to blacklist");
         } else {
-            logoutLogger.info("Skipping blacklist: No access token provided");
+            logoutLogger.info(
+                "Skipping blacklist: Access token already expired",
+            );
         }
     } catch (error) {
         if (error instanceof AppError) {
@@ -230,19 +242,12 @@ export const blacklistAccessToken = async (
         }
 
         logoutLogger.error("Failed to blacklist access token", {
-            error: error.message,
-        });
-
-        logoutLogger.error(
-            "An unexpected error occurred in handleUserLogout service",
-            {
-                error: {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                },
+            error: {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
             },
-        );
+        });
     }
 };
 
@@ -251,20 +256,32 @@ export const revokeRefreshToken = async (
     userId,
     logoutLogger,
 ) => {
+    if (!refreshTokenFromUser) {
+        logoutLogger.info("Skipping revocation: No refresh token provided");
+        return;
+    }
+
     let finalUserId = userId;
-    if (!finalUserId && refreshTokenFromUser) {
+
+    if (!finalUserId) {
         try {
             const decoded = jwt.decode(refreshTokenFromUser);
-            if (decoded?.id) finalUserId = decoded.id;
-        } catch (err) {
-            logoutLogger.warn("Failed to extract userId from token", {
+            if (
+                decoded?.id &&
+                ["string", "number"].includes(typeof decoded.id)
+            ) {
+                finalUserId = decoded.id;
+            }
+        } catch {
+            logoutLogger.warn("Failed to extract userId from refresh token", {
                 reason: "invalid_token_format",
             });
         }
     }
+
     try {
         logoutLogger.info("Initiating refresh token revocation (SHA-256)", {
-            userId: finalUserId || "unknown",
+            userId: finalUserId ?? "unknown",
             action: "revoke_start",
         });
 
@@ -272,22 +289,22 @@ export const revokeRefreshToken = async (
 
         const [updatedRows] = await RefreshToken.update(
             { isRevoked: true },
-            { where: { token: tokenHash } },
+            { where: { token: tokenHash, isRevoked: false } },
         );
 
         if (updatedRows === 0) {
             logoutLogger.warn(
-                "Revocation skipped: Token hash not found in DB",
+                "Revocation skipped: Token not found or already revoked",
                 {
-                    userId: finalUserId || "unknown",
-                    reason: "token_invalid_or_already_deleted",
+                    userId: finalUserId ?? "unknown",
+                    reason: "token_not_found_or_already_revoked",
                 },
             );
             return;
         }
 
         logoutLogger.info("Refresh token revoked successfully", {
-            userId: finalUserId || "unknown",
+            userId: finalUserId ?? "unknown",
             action: "revoke_success",
         });
     } catch (error) {
@@ -297,7 +314,7 @@ export const revokeRefreshToken = async (
                 ? "Application error during revocation"
                 : "Unexpected error during revocation",
             {
-                userId: finalUserId || "unknown",
+                userId: finalUserId ?? "unknown",
                 action: "revoke_error",
                 errorType: error.constructor.name,
                 errorMessage: error.message,
