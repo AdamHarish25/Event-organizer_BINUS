@@ -1,8 +1,12 @@
 import Joi from "joi";
 import dotenv from "dotenv";
-import { resolve } from "path";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config({ path: resolve(process.cwd(), ".env") });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const emailSchema = Joi.string()
     .trim()
