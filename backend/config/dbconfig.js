@@ -22,7 +22,7 @@ if (isTest && databaseName === process.env.DB_NAME) {
     );
     logger.error(`Target terdeteksi: ${databaseName}`);
     logger.error(
-        "Proses dihentikan paksa untuk mencegah penghapusan data. Check file .env Anda dan pastikan DB_NAME_TEST terisi berbeda dengan DB_NAME.",
+        "Proses dihentikan paksa untuk mencegah penghapusan data. Check file .env dan pastikan DB_NAME_TEST terisi berbeda dengan DB_NAME.",
     );
     process.exit(1);
 }
@@ -43,6 +43,9 @@ export async function testDBConnection() {
         await sequelize.authenticate();
         logger.info("✅ Koneksi database berhasil!");
     } catch (error) {
-        logger.error(`❌ Gagal koneksi ke database: ${error.message}`);
+        const message = `Gagal koneksi ke database: ${error.message || "Unknown error"}`;
+
+        logger.error(`❌ ${message}`, error);
+        throw new AppError(message, 500, "DBCONN");
     }
 }
