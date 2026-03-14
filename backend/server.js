@@ -30,16 +30,28 @@ const getServerAddress = (server) => {
 
 const startServer = async () => {
     try {
-        await checkEmailConnection();
-        await testDBConnection();
-
         const server = http.createServer(app);
         socketService.init(server);
 
-        server.listen(PORT, () => {
+        server.listen(PORT, "0.0.0.0", async () => {
             logger.info(
                 `[${NODE_ENV.toUpperCase()}] Server running at ${getServerAddress(server)}`,
             );
+
+            try {
+                logger.info("Mulai ngecek koneksi Email...");
+                await checkEmailConnection();
+                logger.info("Koneksi Email AMAN!");
+
+                logger.info("Mulai ngecek koneksi Database...");
+                await testDBConnection();
+                logger.info("Koneksi Database AMAN!");
+            } catch (connectionError) {
+                logger.error("Gagal saat ngecek koneksi internal:", {
+                    error: connectionError,
+                });
+                process.exit(1);
+            }
         });
 
         const shutdown = (signal) => {
