@@ -36,7 +36,7 @@ const startServer = async () => {
         const server = http.createServer(app);
         socketService.init(server);
 
-        server.listen(PORT, () => {
+        server.listen(PORT, "0.0.0.0", () => {
             logger.info(
                 `[${NODE_ENV.toUpperCase()}] Server running at ${getServerAddress(server)}`,
             );
