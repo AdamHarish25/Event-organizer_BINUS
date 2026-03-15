@@ -2,7 +2,6 @@ import express from "express";
 import dns from "node:dns";
 import dotenv from "dotenv";
 import cors from "cors";
-import session from "express-session";
 import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -214,20 +213,6 @@ if (!isProduction) {
 
     logger.info("Swagger UI aktif di /api-docs");
 }
-
-app.use(
-    session({
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            maxAge: 60000 * 60,
-            httpOnly: true,
-            secure: isProduction,
-            sameSite: isProduction ? "strict" : "lax",
-        },
-    }),
-);
 
 app.use(requestLogger);
 app.use(router);

@@ -28,10 +28,27 @@ const getServerAddress = (server) => {
     return `http://localhost:${addr.port}`;
 };
 
+const withTimeout = (promise, ms, name) => {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            reject(
+                new Error(
+                    `Timeout: ${name} memakan waktu lebih dari ${ms}ms dan nge-hang.`,
+                ),
+            );
+        }, ms);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+};
+
 const startServer = async () => {
     try {
-        await checkEmailConnection();
-        await testDBConnection();
+        await withTimeout(checkEmailConnection(), 10000, "Email Connection");
+        await withTimeout(testDBConnection(), 10000, "Database Connection");
 
         const server = http.createServer(app);
         socketService.init(server);
@@ -67,8 +84,17 @@ const startServer = async () => {
             shutdown("uncaughtException");
         });
     } catch (error) {
-        logger.error("Failed to start server:", { error });
-        process.exit(1);
+        console.error("FATAL ERROR SAAT STARTUP");
+        console.error(error.message || error);
+
+        if (logger && typeof logger.error === "function") {
+            logger.error("Failed to start server:", { error });
+        }
+
+        setTimeout(() => {
+            console.error("Mematikan server...");
+            process.exit(1);
+        }, 1000);
     }
 };
 
